@@ -23,6 +23,7 @@ export class AppComponent implements OnInit {
   
   // Inventory display
   inventory = signal<string[]>([]);
+  selectedItem = signal<string | null>(null);
   
   // Custom input
   customInput = signal<string>('');
@@ -63,15 +64,35 @@ export class AppComponent implements OnInit {
     }
   }
 
+  selectItem(item: string) {
+    if (this.selectedItem() === item) {
+      this.selectedItem.set(null); // Deselect if already selected
+    } else {
+      this.selectedItem.set(item);
+    }
+  }
+
   async handleInteraction(poi: PointOfInterest) {
     if (this.isLoading()) return;
     
     let action = '';
-    switch (poi.type) {
-      case 'exit': action = `Vai verso ${poi.name}`; break;
-      case 'pickup': action = `Prendi ${poi.name}`; break;
-      case 'character': action = `Parla con ${poi.name}`; break;
-      default: action = `Esamina/Usa ${poi.name}`; break;
+    
+    // Inventory Usage Logic (Scripting)
+    if (this.selectedItem() && poi.type !== 'exit' && poi.type !== 'pickup') {
+      // If we have an item selected and click an interactive object/character
+      action = `Usa ${this.selectedItem()} su ${poi.name}`;
+      
+      // Auto-deselect after attempting use, or keep it? 
+      // Generally better to reset to avoid accidental clicks
+      this.selectedItem.set(null);
+    } else {
+      // Default Interaction
+      switch (poi.type) {
+        case 'exit': action = `Vai verso ${poi.name}`; break;
+        case 'pickup': action = `Prendi ${poi.name}`; break;
+        case 'character': action = `Parla con ${poi.name}`; break;
+        default: action = `Esamina/Usa ${poi.name}`; break;
+      }
     }
 
     this.processAction(action);

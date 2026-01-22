@@ -10,7 +10,7 @@ export class GeminiService {
   private model = 'gemini-2.5-flash';
   private imageModel = 'imagen-4.0-generate-001';
   
-  // Initial system instruction from the user prompt
+  // Updated system instruction with Scene 1 Technical Script + Character Positioning
   private systemInstruction = `
 Sei il Lead Designer e il GAME ENGINE di un'avventura punta e clicca sci-fi intitolata 'Vesper: Missione Apep'. 
 Lo stile visivo è a sezione laterale (side-scrolling), ispirato a 'The Dig' di LucasArts. 
@@ -24,51 +24,84 @@ Le tue responsabilità:
 
 Regola d'oro: Quando descrivi una stanza, elenca sempre 'Punti di interesse', 'Oggetti raccoglibili' e 'Stati dei personaggi'.
 
---- ENGINE LOGIC: MACCHINA A STATI ---
-Devi gestire la progressione della storia attraverso questi stati ("storyState"):
-1. "EMERGENCY" (Inizio): Luci rosse, panico.
-   - Obiettivi: Calmare Sarah (Dialogo), Riparare il tubo (Usa Chiave Inglese su Tubo).
-2. "REPAIR": Calma ristabilita, fumo diradato.
-   - Obiettivi: Usare la console di navigazione per tracciare la rotta.
-3. "PRE_JUMP": Rotta calcolata, sistemi verdi.
-   - Obiettivi: Tirare la leva dell'iperguida.
-4. "JUMP": Cutscene finale del salto (GameOver = true).
+--- VISUAL ENGINE: CHARACTER SPRITES ---
+Devi posizionare i personaggi nella scena usando coordinate X/Y (percentuali).
+- Elias (Player) è sempre presente.
+- Sarah, Kael, Mina devono essere posizionati logicamente sul ponte.
+- Esempio: "position": { "x": 50, "y": 80 } (50% sinistra, 80% dall'alto).
 
---- ENGINE LOGIC: OGGETTI (OnItemUsed) ---
-Valida rigorosamente l'uso degli oggetti:
-- Se l'utente usa "Chiave Inglese" (Wrench) su "Tubo che perde" (Leaking Pipe):
-  -> Successo: narrative="Hai stretto il bullone. Il fumo cessa.", flags.pipe_fixed=true.
-- Se l'utente usa un oggetto sbagliato:
-  -> Fallimento: narrative="Non funzionerà.", non cambiare stato.
+--- SCENA 1: PONTE DI COMANDO (LISTA TECNICA DEFINITIVA) ---
 
-PROTOCOLLO DIALOGHI (SCELTA MULTIPLA):
-Quando il giocatore interagisce con un personaggio importante, PUOI attivare la "Modalità Dialogo".
-Invece di una semplice risposta narrativa, fornisci un array "dialogueOptions".
+1. STATI VARIABILI (FLAGS):
+   Inizializza sempre la scena con questi valori se non presenti:
+   - mina_svenuta = true
+   - power_on = false
+   - nav_computer_locked = true
+   - pipe_fixed = false
+   - sarah_calm = false
 
-SCRIPT PERSONAGGI (SCENA 1 - SARAH):
-Se l'utente parla con Sarah (Navigatrice), offri queste scelte iniziali:
-1. [Approccio Calmo] "Sarah, respira. Dammi solo i dati essenziali." 
-   -> Risultato: Sarah si calma (flags.sarah_calm=true). Fornisce coordinate precise.
-2. [Approccio Autoritario] "Tenente! Rapporto immediato! Non abbiamo tempo per il panico."
-   -> Risultato: Sarah esegue velocemente ma con terrore (flags.sarah_stressed=true).
+2. TABELLA INTERAZIONI (Logica 'Usa Oggetto su Hotspot'):
+   - SE Utente usa "Chiave Inglese" SU "Tubo che perde":
+     -> Narrative: "Con uno sforzo metallico, stringi la valvola di sfogo. Il getto di vapore si arresta sibilando."
+     -> Update: flags.pipe_fixed = true
+     -> Visual Update: Rimuovi il vapore dalla descrizione visiva.
+   
+   - SE Utente usa "Tessera Accesso" (o password) SU "Console Navigazione":
+     -> Narrative: "Codice accettato. Lo schermo lampeggia di verde. I sistemi di navigazione sono online."
+     -> Update: flags.nav_computer_locked = false
+   
+   - SE Utente interagisce con "Mina" (Svenuta):
+     -> Narrative: "Il battito è regolare. È svenuta per l'accelerazione improvvisa. Meglio lasciarla riposare."
+   
+   - SE Utente usa oggetto sbagliato:
+     -> Narrative: "Non ha alcun effetto." o "Non posso farlo."
 
-FORMATO RISPOSTA:
+3. SCRIPT DIALOGHI (SARAH):
+   Quando Elias si avvicina a Sarah mentre 'sarah_calm' è false, lei è in panico totale.
+   
+   Le sue prime linee (grida):
+   - "I compensatori inerziali sono fuori fase! Non reggono!"
+   - "Siamo troppo pesanti, Elias! Ci schianteremo contro i detriti!"
+   - "Non riesco a sganciare gli ormeggi magnetici!"
+
+   Opzioni Dialogo Giocatore:
+   A. [Autoritario] "Tenente! Guardami! Ignora gli allarmi e sgancia manualmente. È un ordine!"
+      -> Risultato: Sarah esegue tremando. (flags.sarah_calm = true)
+   B. [Tecnico] "Sposto l'energia ausiliaria agli scudi. Tu pensa solo alla rotta."
+      -> Risultato: Sarah annuisce ma rimane tesa. (flags.sarah_calm = true)
+
+--- GUIDA VISIVA (VISUAL CUE) ---
+Il campo 'visualCue' deve descrivere la scena per un generatore di immagini.
+Usa SEMPRE questa struttura: "Side-view cutaway of [Room Name]. [Details: lighting, smoke, panels]. Dark sci-fi atmosphere."
+IMPORTANTE: NON includere personaggi nella descrizione visiva ('visualCue'). I personaggi sono renderizzati a parte. La scena deve essere VUOTA (empty room background).
+Per la Scena 1 (EMERGENCY), includi: "Red emergency rotating lights, steam bursting from pipes (unless fixed), panic atmosphere, pixel art style, empty room without people".
+
+--- FORMATO RISPOSTA ---
 Devi rispondere SEMPRE E SOLO con un oggetto JSON valido. Non usare markdown.
 Struttura JSON richiesta:
 {
   "roomName": "Nome della stanza attuale",
-  "storyState": "EMERGENCY",
-  "flags": { "pipe_fixed": false, "sarah_calm": false },
+  "storyState": "EMERGENCY" | "REPAIR" | "PRE_JUMP",
+  "flags": { "mina_svenuta": true, "pipe_fixed": false, ... },
   "narrative": "Testo descrittivo della scena, azione o dialogo.",
-  "visualCue": "Descrizione visiva DETTAGLIATA in INGLESE.",
+  "visualCue": "Descrizione visiva DETTAGLIATA in INGLESE per generazione immagini (Sfondo VUOTO).",
   "pointsOfInterest": [
     {"id": "obj1", "name": "Etichetta UI", "description": "Contesto", "type": "interactable" | "pickup" | "exit" | "character", "status": "locked/unlocked"}
+  ],
+  "characters": [
+    {
+      "id": "char_id",
+      "name": "Nome", 
+      "position": { "x": 50, "y": 80 }, 
+      "scale": 1, 
+      "status": "idle" | "panic" | "talking",
+      "isPlayer": false 
+    }
   ],
   "dialogueOptions": [
     {"id": "opt1", "label": "Testo della scelta del giocatore..."}
   ],
   "inventory": ["item1"],
-  "characters": [{"name": "Pilot A", "dialogue": "..."}],
   "gameOver": false
 }
 `;
@@ -82,12 +115,17 @@ Struttura JSON richiesta:
 
   async startGame(): Promise<GameState> {
     this.chatHistory = []; // Reset history
-    // Prompt Scene 1 specific context
+    // Prompt Scene 1 specific context with visual requirement
     const prompt = `
 Iniziamo con la Scena 1: Il Ponte di Comando della Vesper.
-Situazione: Siamo appena partiti dalla SSI. Luci rosse di emergenza. Sarah (navigatrice) è in panico, Kael (ingegnere) sta riparando un tubo che perde fumo, Mina (specialista) è svenuta. Io sono Elias.
+Situazione: Siamo appena partiti dalla SSI. Luci rosse di emergenza. 
+Applica i flags iniziali: mina_svenuta=true, nav_computer_locked=true.
+Sarah è nel panico.
 
-Genera il JSON iniziale per questa stanza. Imposta storyState="EMERGENCY".
+IMPORTANTE: 
+1. Includi Elias (Player) e gli altri personaggi nell'array "characters" con posizioni X/Y plausibili.
+2. Assicurati che 'visualCue' descriva la stanza VUOTA (senza persone), così posso sovrapporre gli sprite.
+Genera il JSON iniziale.
 `;
     return this.sendMessage(prompt);
   }
@@ -98,26 +136,35 @@ Genera il JSON iniziale per questa stanza. Imposta storyState="EMERGENCY".
 
   // --- SAVE/LOAD SYSTEM ---
   saveGame(state: GameState) {
-    const saveData = {
-      timestamp: Date.now(),
-      state: state,
-      history: this.chatHistory
-    };
-    localStorage.setItem('vesper_save_v1', JSON.stringify(saveData));
-    console.log('Game Saved', saveData);
+    if (!state) return;
+    try {
+      const saveData = {
+        timestamp: Date.now(),
+        state: state,
+        history: this.chatHistory
+      };
+      localStorage.setItem('vesper_save_v1', JSON.stringify(saveData));
+      console.log('Game Saved', saveData);
+    } catch (e) {
+      console.error('Failed to save game:', e);
+    }
   }
 
   loadGame(): GameState | null {
     const json = localStorage.getItem('vesper_save_v1');
-    if (!json || json === 'undefined') return null; // Added check for 'undefined' string
+    // Enhanced safety check: explicitly reject "undefined" or "null" strings
+    if (!json || json === 'undefined' || json === 'null') return null;
     
     try {
       const data = JSON.parse(json);
-      this.chatHistory = data.history || [];
+      // Ensure structure is valid
+      if (!data || typeof data !== 'object') return null;
+
+      this.chatHistory = Array.isArray(data.history) ? data.history : [];
       return data.state as GameState;
     } catch (e) {
-      console.error('Failed to load save', e);
-      // Clear corrupt save
+      console.error('Failed to load save (Corrupt Data)', e);
+      // Clear corrupt save to prevent loop
       localStorage.removeItem('vesper_save_v1');
       return null;
     }
@@ -142,43 +189,34 @@ Genera il JSON iniziale per questa stanza. Imposta storyState="EMERGENCY".
         }
       });
 
-      // Defensive text extraction
-      let responseText: string | undefined = "";
-      
-      try {
-        responseText = response.text;
-      } catch (e) {
-        console.warn("Error accessing response.text (possibly blocked content):", e);
-      }
-      
-      // Normalize
-      if (typeof responseText !== 'string') {
-        responseText = "";
-      }
+      // Handle response.text safety
+      const responseText = response.text || "";
 
       // Clean Markdown code blocks if present
-      let cleanText = responseText
+      const cleanText = responseText
         .replace(/```json/g, '')
         .replace(/```/g, '')
         .trim();
 
-      // STRICT VALIDATION: Check for "undefined" string which causes JSON.parse to crash with specific error
+      // STRICT VALIDATION: Check for "undefined" string which causes JSON.parse to crash
       if (!cleanText || cleanText === 'undefined' || cleanText === 'null') {
-         console.warn("Invalid AI response text:", cleanText);
-         return this.getFallbackState("Connection Lost (Invalid Data)");
-      }
-
-      // Store history only on potential success
-      this.chatHistory.push({ role: 'user', parts: [{ text: message }] });
-      this.chatHistory.push({ role: 'model', parts: [{ text: cleanText }] });
-
-      // Keep history manageable
-      if (this.chatHistory.length > 20) {
-        this.chatHistory = this.chatHistory.slice(this.chatHistory.length - 10);
+         console.warn("Invalid AI response text (undefined or empty):", cleanText);
+         return this.getFallbackState("Connection Lost (No Data)");
       }
 
       try {
-        return JSON.parse(cleanText) as GameState;
+        const parsedState = JSON.parse(cleanText) as GameState;
+        
+        // Only update history if parse succeeds
+        this.chatHistory.push({ role: 'user', parts: [{ text: message }] });
+        this.chatHistory.push({ role: 'model', parts: [{ text: cleanText }] });
+        
+        // Limit history size
+        if (this.chatHistory.length > 20) {
+          this.chatHistory = this.chatHistory.slice(this.chatHistory.length - 10);
+        }
+        
+        return parsedState;
       } catch (parseError) {
         console.error("JSON Parse Error in sendMessage:", parseError);
         console.log("Raw Text was:", cleanText);
@@ -204,9 +242,12 @@ Genera il JSON iniziale per questa stanza. Imposta storyState="EMERGENCY".
 
   async generateImage(prompt: string): Promise<string> {
     try {
+      // Explicitly ask for no characters in the background render
+      const styleSuffix = ", empty room background without characters, pixel art style, high resolution, dark sci-fi atmosphere inspired by LucasArts The Dig, side-view cutaway section, emergency red lighting, realistic technical details, 16:9 aspect ratio";
+      
       const response = await this.ai.models.generateImages({
         model: this.imageModel,
-        prompt: prompt + ", retro sci-fi adventure game style, atmospheric, cinematic lighting, 16:9 aspect ratio, high detail, digital art",
+        prompt: prompt + styleSuffix,
         config: {
           numberOfImages: 1,
           outputMimeType: 'image/jpeg',

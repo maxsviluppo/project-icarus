@@ -51,15 +51,30 @@
       
       <!-- Inventory Bar -->
       <div class="p-3 bg-slate-900/50 border-b border-slate-800">
-        <h3 class="text-xs text-slate-400 uppercase tracking-wider mb-2">Inventory</h3>
+        <h3 class="text-xs text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+          Inventory
+          @if(selectedItem()) {
+            <span class="text-amber-500 animate-pulse">USING: {{ selectedItem() }}</span>
+          }
+        </h3>
         <div class="flex flex-wrap gap-2">
           @if (inventory().length === 0) {
             <span class="text-xs text-slate-600 italic">Vuoto</span>
           }
           @for (item of inventory(); track item) {
-            <div class="px-2 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-amber-100 shadow-sm cursor-help hover:border-amber-500 transition-colors">
+            <button 
+              (click)="selectItem(item)"
+              class="px-2 py-1 border rounded text-xs shadow-sm transition-all"
+              [class.bg-amber-900]="selectedItem() === item"
+              [class.bg-slate-800]="selectedItem() !== item"
+              [class.border-amber-500]="selectedItem() === item"
+              [class.border-slate-600]="selectedItem() !== item"
+              [class.text-amber-100]="selectedItem() === item"
+              [class.text-slate-300]="selectedItem() !== item"
+              [class.hover:border-cyan-500]="selectedItem() !== item"
+            >
               {{ item }}
-            </div>
+            </button>
           }
         </div>
       </div>

@@ -1,3 +1,4 @@
+
 export interface PointOfInterest {
   id: string;
   name: string;
@@ -12,8 +13,14 @@ export interface DialogueOption {
 }
 
 export interface GameCharacter {
+  id: string;
   name: string;
   dialogue?: string;
+  // Visual properties
+  position?: { x: number; y: number }; // Percentage 0-100
+  scale?: number; // 1.0 = normal
+  status?: 'idle' | 'talking' | 'panic' | 'unconscious';
+  isPlayer?: boolean;
 }
 
 export interface GameState {
