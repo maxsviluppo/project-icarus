@@ -24,6 +24,8 @@ export interface GameCharacter {
   // Animation props
   isMoving?: boolean;
   direction?: 'left' | 'right';
+  facing?: 'up' | 'down' | 'left' | 'right';
+  walkDistance?: number; // Accumulated distance for animation frames
   spriteSheet?: string; // Overrides default sprite if present
   targetPosition?: { x: number; y: number };
 }

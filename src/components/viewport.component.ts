@@ -10,7 +10,7 @@ import { HotspotArea } from '../scenes/bridge-hotspots';
   imports: [CommonModule, HotspotOverlayComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="relative w-full h-full bg-black select-none flex flex-col overflow-hidden">
+    <div class="relative w-full h-full bg-black select-none flex flex-col">
       
       <!-- Loading Overlay -->
       @if (loading()) {
@@ -20,15 +20,13 @@ import { HotspotArea } from '../scenes/bridge-hotspots';
         </div>
       }
 
-      <!-- Main Scene Area (Full Height) - LucasArts Style -->
-      <div class="flex-1 bg-black flex items-center justify-center overflow-hidden">
-        
-        <!-- Scene Container Forced to 9:16 Aspect Ratio (Smartphone Mode) -->
-        <div class="relative w-full aspect-[9/16] max-h-full max-w-full shadow-2xl transition-transform duration-500" style="transform: translateY(-180px)" (click)="onSceneClick($event)">
+      <div class="flex-1 bg-black flex items-center justify-center h-full">
+        <!-- Scene Container - Full Screen Mobile -->
+        <div class="relative w-full h-full max-h-full max-w-full shadow-2xl transition-transform duration-500" (click)="onSceneClick($event)">
           
           <!-- Scene Background Image -->
           @if (imageSrc()) {
-            <img [src]="imageSrc()" alt="Scene" class="absolute inset-0 w-full h-full object-contain">
+            <img [src]="imageSrc()" alt="Scene" class="absolute inset-0 w-full h-full object-cover">
           } @else {
              <div class="absolute inset-0 flex items-center justify-center p-10 text-center text-slate-700 bg-slate-900">
               <div>
@@ -70,7 +68,7 @@ import { HotspotArea } from '../scenes/bridge-hotspots';
                     <!-- Character Sprite Rendering -->
                     @if (isSpriteSheet(char)) {
                        <!-- ANIMATED SPRITE SHEET -->
-                       <div class="pixel-sprite w-32 h-32" [ngStyle]="getSpriteStyle(char)"></div>
+                       <div class="pixel-sprite" [ngStyle]="getSpriteStyle(char)"></div>
                     } @else if (getCharacterSprite(char.name)) {
                       <!-- STATIC SPRITE IMAGE -->
                       <img 
@@ -128,6 +126,7 @@ import { HotspotArea } from '../scenes/bridge-hotspots';
         }
       </div>
     </div>
+  </div>
   `,
   styles: [`
     .pixel-sprite {
@@ -175,11 +174,6 @@ export class ViewportComponent {
       // Update character logic
       this.updateCharacterPositions();
 
-      // Update global animation frame (used for walking)
-      if (this.tickCount % 4 === 0) {
-        this.animFrame.update(f => f + 1);
-      }
-
       this.cdr.markForCheck();
     }, 30);
   }
@@ -206,8 +200,9 @@ export class ViewportComponent {
     // Find player (Elias/Elisa)
     const player = this.state()?.characters.find(c => c.id === 'elias' || c.isPlayer);
     if (player) {
-      // Clamp Y to "floor" area (e.g. 40% to 98%) to prevent walking on walls/ceiling
-      const clampedY = Math.max(40, Math.min(98, y));
+      // Clamp Y to "floor" area (e.g. 10% to 98%) to prevent walking on walls/ceiling
+      // Increased range for full screen walkability
+      const clampedY = Math.max(10, Math.min(98, y));
       player.targetPosition = { x, y: clampedY };
     }
   }
@@ -217,6 +212,9 @@ export class ViewportComponent {
     if (!characters) return;
 
     characters.forEach(char => {
+      // Initialize walk distance if undefined
+      if (char.walkDistance === undefined) char.walkDistance = 0;
+
       if (char.targetPosition) {
         const dx = char.targetPosition.x - (char.position?.x || 50);
         const dy = char.targetPosition.y - (char.position?.y || 50);
@@ -230,9 +228,10 @@ export class ViewportComponent {
           }
           char.targetPosition = undefined;
           char.isMoving = false;
+          char.walkDistance = 0; // Reset stride on stop
         } else {
           // Move
-          const speed = 0.1; // Faster speed (was 0.05)
+          const speed = 0.4; // Significantly Increased speed (was 0.1)
           const moveDist = Math.min(dist, speed);
           const ratio = moveDist / dist;
 
@@ -241,14 +240,37 @@ export class ViewportComponent {
           char.position.y += dy * ratio;
 
           char.isMoving = true;
-          // FLIP Direction
-          if (dx > 0) char.direction = 'right';
-          else if (dx < 0) char.direction = 'left';
+
+          // Weighted distance: Y moves further in pixels than X for the same % unit (mobile aspect ratio)
+          const visualDist = Math.sqrt(Math.pow(dx * ratio, 2) + Math.pow(dy * ratio * 1.6, 2));
+          char.walkDistance += visualDist;
+
+          // DETERMINATE FACING (4-Way) with vertical priority
+          if (Math.abs(dy) > Math.abs(dx) * 0.8) {
+            // Vertical movement (biased slightly to trigger sooner)
+            if (dy > 0) char.facing = 'down';
+            else char.facing = 'up';
+            char.direction = dx > 0 ? 'right' : 'left';
+          } else {
+            // Horizontal dominant
+            if (dx > 0) {
+              char.facing = 'right';
+              char.direction = 'right';
+            } else {
+              char.facing = 'left';
+              char.direction = 'left';
+            }
+          }
         }
       } else {
         char.isMoving = false;
       }
     });
+
+    // Update global animation frame based on time as fallback
+    if (this.tickCount % 4 === 0) {
+      this.animFrame.update(f => f + 1);
+    }
   }
 
   // Gestisce i click sugli hotspots dell'immagine
@@ -265,16 +287,17 @@ export class ViewportComponent {
 
   getCharacterTransform(char: GameCharacter): string {
     const y = char.position?.y || 50;
-    const baseScale = (char.scale || 1) * 1.2;
-    // Depth scaling: Starts increasing from y=40 up to y=100
-    // Max increase 20% (multiplier 1.2) at the bottom of the screen
-    const depthFactor = 1 + Math.max(0, (y - 40) / 60) * 0.2;
+    // Scala progressiva: 0.7 (lontano) -> 1.25 (vicino)
+    const progress = Math.max(0, Math.min(1, (y - 15) / 80));
+    const totalScale = (char.scale || 1) * (0.7 + progress * 0.55);
 
-    // Anchor at -90% Y so the coordinate represents the feet, not the center
-    return `translate(-50%, -90%) scale(${baseScale * depthFactor})`;
+    // translate(-50%, -100%) ancora perfettamente i piedi (base del div) al punto Y
+    // transform-origin: bottom è fondamentale per scalare dai piedi
+    return `translate(-50%, -100%) scale(${totalScale})`;
   }
 
   getFlipTransform(char: GameCharacter): string {
+    // Only flip if using Left/Right specific assets that need mirroring
     return char.direction === 'left' ? 'scaleX(-1)' : 'none';
   }
 
@@ -306,48 +329,70 @@ export class ViewportComponent {
   getSpriteStyle(char: GameCharacter): { [klass: string]: any } {
     if (!this.isSpriteSheet(char)) return {};
 
-    const frameSize = 128; // 128x128
-    const framesPerRow = 8; // Updated to 8 frames as per specs
+    const frameSize = 128; // Assuming 128x128 grid
+    const framesPerRow = 8;
 
-    // Row selection based on user specs:
-    // Row 0 (1st row): Walk (dx/sx)
-    // Row 1 (2nd row): Idle (Fermo)
-    // Row 2,3: Walk retro (ignored for now)
+    // Row Mapping for medico.png:
+    // Row 0: Horizontal Walk (Mirror for Left)
+    // Row 1: Walk Down (as specified: "seconda riga e il camminata verso il basso")
+    // Row ?: Walk Up (Assuming Row 2 until further notice)
+    // Idle uses the first image (Row 1, Frame 0 based on "la prima immagine e la posizione ferma" in the context of walk down)
+    // Actually, usually Row 1 is Walk Down. "prima immagine" might mean Row 1 Frame 0 when idle.
 
-    let row = 1; // Default to Idle (Index 1)
+    // MAPPING CORRETTO PER medico.png:
+    // Riga 0 (indice 0): Camminata Laterale (e fallback per UP)
+    // Riga 1 (indice 1): Camminata Frontale (DOWN)
 
+    let row = 1; // Default alla riga frontale
     if (char.isMoving) {
-      row = 0; // Walk (Index 0)
+      switch (char.facing) {
+        case 'up': row = 0; break;    // Uso la riga side (0) come fallback per 'up'
+        case 'down': row = 1; break;  // La riga frontale è la 1
+        case 'left': row = 0; break;
+        case 'right': row = 0; break;
+        default: row = 1;
+      }
+    } else {
+      row = 1; // Idle front
     }
 
     let currentFrame = 0;
-
     if (char.isMoving) {
-      // Walk (Row 0): CICLO DI 8 FRAME (1024px totali)
-      currentFrame = this.animFrame() % framesPerRow;
+      const stride = 2.8;
+      const walkDist = char.walkDistance || 0;
+      currentFrame = Math.floor(walkDist / stride) % framesPerRow;
     } else {
-      // Idle (Row 1): 8 frames cycle for "breathing" effect
-      // Update frame every ~300ms (10 ticks)
-      currentFrame = Math.floor(this.tickCount / 10) % framesPerRow;
+      currentFrame = 0;
     }
 
-    // Offset manuale
-    // Centriamo 80px in 128px: (128-80)/2 = 24px di taglio per lato
-    const xOffset = -34;
-    const yOffset = 0;
+    // Calcolo posizione: Usiamo 256px come distanza tra le righe (rowHeight)
+    // dato che l'utente ha indicato che i frame sono molto distanti in verticale.
+    const frameWidth = 128;
+    const rowHeight = 256;
+    const containerHeight = 220; // Aumentato per sicurezza
+    const headRoom = 60;   // Spazio vuoto garantito sopra l'inizio del frame 256px
 
-    const xPos = -(currentFrame * frameSize) + xOffset;
-    const yPos = -(row * frameSize) + yOffset;
+    const xPos = -(currentFrame * frameWidth);
+    const yPos = -(row * rowHeight) + headRoom;
+
+    // Determine transform for flipping (Solo riga 0)
+    let transform = 'none';
+    if (char.isMoving && char.facing === 'left' && row === 0) {
+      transform = 'scaleX(-1)';
+    }
 
     return {
-      'width.px': 60, // Slimmer width (60px)
-      'height.px': frameSize,
+      'width.px': frameWidth,
+      'height.px': containerHeight,
       'background-image': `url(${this.getSpriteSheet(char)})`,
-      'background-size': '1024px 256px', // 8 cols x 2 rows
+      'background-size': '1024px auto',
       'background-position': `${xPos}px ${yPos}px`,
+      'padding-bottom.px': 0,
       'background-repeat': 'no-repeat',
-      'transform': char.direction === 'left' ? 'scaleX(-1)' : 'none',
-      'overflow': 'hidden'
+      'transform': transform,
+      'transform-origin': 'bottom center', // I piedi restano ancorati al fondo del div
+      'overflow': 'visible',
+      'image-rendering': 'pixelated'
     };
   }
 

@@ -98,9 +98,9 @@ export const BRIDGE_HOTSPOTS: HotspotArea[] = [
         type: 'exit',
         bounds: {
             x: 38,
-            y: 35,
+            y: 48,
             width: 16,
-            height: 45
+            height: 50
         },
         status: 'locked'
     },

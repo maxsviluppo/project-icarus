@@ -1,112 +1,72 @@
-<div
-  class="flex flex-col h-screen bg-black text-slate-200 font-mono overflow-hidden selection:bg-cyan-900 selection:text-white">
+<div class="relative w-full h-screen bg-black overflow-hidden font-mono selection:bg-cyan-900 selection:text-white">
+  <!-- FULL SCREEN VIEWPORT (Background Layer) -->
+  <app-viewport [state]="gameState()" [imageSrc]="currentImage()" [loading]="isLoading()"
+    (interact)="handleInteraction($event)" (dialogueChoice)="handleDialogue($event)" class="absolute inset-0 z-0">
+  </app-viewport>
 
-  <!-- Header -->
-  <header
-    class="fixed top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/80 to-transparent flex items-start justify-between p-0 z-50 pointer-events-none">
-    <div class="absolute top-[2%] left-[2%] flex items-start space-x-3 pointer-events-auto">
-      <!-- Dot removed as requested -->
-      <img src="/logo.png" alt="Vesper Project Apep" class="h-10 object-contain">
+  <!-- UI OVERLAYS (Top Layer) -->
+  <div class="absolute inset-0 z-10 pointer-events-none flex flex-col">
 
-      <!-- State Indicator (Debug) -->
-      @if (gameState()?.storyState) {
-      <span
-        class="hidden md:inline-flex items-center ml-4 px-2 py-0.5 rounded bg-slate-800 text-[10px] text-cyan-400 border border-slate-700">
-        STATE: {{ gameState()?.storyState }}
-      </span>
-      }
-    </div>
-
-    <div class="absolute top-[2%] right-[2%] flex items-center space-x-4 pointer-events-auto">
-      <!-- Save/Load Controls -->
-      <div class="flex space-x-2">
-        <!-- SAVE Button -->
-        <button (click)="saveGame()"
-          class="group relative p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all duration-300 hover:shadow-[0_0_15px_rgba(0,0,0,0.8)]"
-          title="Save Game">
-          <img src="/save.png" alt="Save"
-            class="w-10 h-10 object-contain opacity-80 group-hover:opacity-100 transition-all">
-          <!-- Tooltip -->
-          <span
-            class="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-green-400 text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-green-500/30">SAVE</span>
-        </button>
-
-        <!-- LOAD Button -->
-        <button (click)="loadGame()"
-          class="group relative p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all duration-300 hover:shadow-[0_0_15px_rgba(0,0,0,0.8)]"
-          title="Load Game">
-          <img src="/load.png" alt="Load"
-            class="w-10 h-10 object-contain opacity-80 group-hover:opacity-100 transition-all transform rotate-180">
-          <!-- Tooltip -->
-          <span
-            class="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-amber-400 text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-amber-500/30">LOAD</span>
-        </button>
-
-        <!-- DATA Toggle Button (ex LOG) -->
-        <button (click)="toggleSidebar()"
-          class="group relative p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all duration-300 hover:shadow-[0_0_15px_rgba(0,0,0,0.8)]"
-          [class.bg-cyan-900]="isSidebarOpen()" title="Toggle Data Link">
-          <img src="/terminal.png" alt="Data"
-            class="w-10 h-10 object-contain opacity-80 group-hover:opacity-100 transition-all">
-          <span
-            class="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-cyan-400 text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-cyan-500/30">DATA</span>
-        </button>
+    <!-- Header Overlay -->
+    <header
+      class="h-24 bg-gradient-to-b from-black/80 to-transparent flex items-start justify-between p-4 pointer-events-auto">
+      <div class="flex items-start space-x-3">
+        <img src="/logo.png" alt="Vesper Project Apep" class="h-10 object-contain">
       </div>
 
-      <div class="text-xs text-slate-500 uppercase hidden sm:block">
-        Secure Connection // <span class="text-cyan-500">ENCRYPTED</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content Area -->
-  <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-
-    <!-- Left/Top Panel: Visual Viewport (Game Window) -->
-    <main class="flex-1 relative bg-black flex flex-col min-h-[50vh] md:min-h-0 z-10">
-      <app-viewport [state]="gameState()" [imageSrc]="currentImage()" [loading]="isLoading()"
-        (interact)="handleInteraction($event)" (dialogueChoice)="handleDialogue($event)"
-        class="flex-1 shadow-2xl"></app-viewport>
-    </main>
-
-    <!-- Right/Bottom Panel: Data/Puzzle Panel (Hidden by default) -->
-    <aside
-      class="w-full md:w-96 flex-none bg-slate-950 flex flex-col border-l border-slate-800 z-20 transition-all duration-300"
-      [class.hidden]="!isSidebarOpen()">
-
-      <!-- Placeholder for Future Puzzles / Data Pad -->
-      <div
-        class="flex-1 flex flex-col items-center justify-center p-6 text-slate-700 bg-[url('/assets/grid-pattern.png')] bg-repeat opacity-80 decoration-slice">
-        <div
-          class="w-20 h-20 border-2 border-slate-800 rounded-full flex items-center justify-center mb-6 animate-pulse">
-          <svg class="w-10 h-10 opacity-30 text-cyan-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-        </div>
-        <h3 class="text-sm font-bold uppercase tracking-[0.2em] mb-2 text-slate-500">Data Link Offline</h3>
-        <p class="text-xs text-center italic opacity-40 max-w-[200px]">Modulo critto-analisi in attesa di segnale.</p>
-      </div>
-
-      <!-- Debug Input Area (Kept for Dev Utility) -->
-      <div class="p-3 bg-slate-900/80 border-t border-slate-800 backdrop-blur-sm">
-        <div class="flex space-x-2 opacity-50 hover:opacity-100 transition-opacity duration-300">
-          <span class="text-cyan-900 self-center font-bold font-mono text-xs">></span>
-          <input type="text" [(ngModel)]="customInput" (keydown.enter)="submitCustomCommand()" [disabled]="isLoading()"
-            placeholder="DEV_CONSOLE_INPUT..."
-            class="flex-1 bg-transparent border-none outline-none text-slate-500 placeholder-slate-800 font-mono h-6 text-[10px] focus:ring-0">
+      <div class="flex items-center space-x-4">
+        <!-- Save/Load Controls -->
+        <div class="flex space-x-2">
+          <button (click)="saveGame()" class="p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all">
+            <img src="/save.png" alt="Save" class="w-8 h-8 object-contain opacity-80">
+          </button>
+          <button (click)="loadGame()" class="p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all">
+            <img src="/load.png" alt="Load" class="w-8 h-8 object-contain opacity-80 transform rotate-180">
+          </button>
+          <button (click)="toggleSidebar()" class="p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all"
+            [class.bg-cyan-900]="isSidebarOpen()">
+            <img src="/terminal.png" alt="Data" class="w-8 h-8 object-contain opacity-80">
+          </button>
         </div>
       </div>
-    </aside>
+    </header>
 
+    <!-- Middle Area (for Sidebar overlay) -->
+    <div class="flex-1 flex justify-end relative overflow-hidden">
+      <!-- Sidebar as Overlay -->
+      <aside
+        class="w-80 h-full bg-slate-950/90 backdrop-blur-md border-l border-slate-800 pointer-events-auto transition-transform duration-500"
+        [style.transform]="isSidebarOpen() ? 'translateX(0)' : 'translateX(100%)'">
+
+        <div class="flex-1 flex flex-col items-center justify-center p-6 text-slate-500">
+          <div
+            class="w-12 h-12 border border-slate-800 rounded-full flex items-center justify-center mb-4 animate-pulse">
+            <span class="text-xs">AI</span>
+          </div>
+          <p class="text-[10px] tracking-widest uppercase opacity-50">Data Link Active</p>
+
+          <!-- Debug Console inside Sidebar -->
+          <div class="mt-auto w-full p-2 bg-black/40 border-t border-slate-800">
+            <input type="text" [(ngModel)]="customInput" (keydown.enter)="submitCustomCommand()"
+              placeholder="COMMAND..."
+              class="w-full bg-transparent border-none outline-none text-cyan-500 font-mono text-[10px]">
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom Overlays (Action Bar handled by its own component) -->
+    <div class="h-28 pointer-events-none"></div>
   </div>
 
-  <!-- Action Bar (stile LucasArts) -->
-  <app-action-bar (actionSelected)="onActionSelected($event)"
-    (inventoryToggled)="onInventoryToggled()"></app-action-bar>
+  <!-- Action Bar (Floating Overlay) -->
+  <app-action-bar (actionSelected)="onActionSelected($event)" (inventoryToggled)="onInventoryToggled()"
+    class="z-50 pointer-events-none">
+  </app-action-bar>
 
   <!-- Inventory Panel (overlay) -->
   <app-inventory-panel [isOpen]="(inventoryService.isOpen$ | async) || false"
-    [items]="(inventoryService.items$ | async) || []"
-    (closed)="inventoryService.closeInventory()"></app-inventory-panel>
+    [items]="(inventoryService.items$ | async) || []" (closed)="inventoryService.closeInventory()" class="z-[60]">
+  </app-inventory-panel>
 
 </div>
