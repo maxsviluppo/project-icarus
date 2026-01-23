@@ -2,7 +2,7 @@ import { Component, input, output, ChangeDetectionStrategy, signal, computed, ef
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { GameState, PointOfInterest, DialogueOption, GameCharacter } from '../types';
 import { HotspotOverlayComponent } from './hotspot-overlay.component';
-import { HotspotArea } from '../scenes/bridge-hotspots';
+import { HotspotArea, WALKABLE_AREA } from '../scenes/bridge-hotspots';
 
 @Component({
   selector: 'app-viewport',
@@ -44,9 +44,17 @@ import { HotspotArea } from '../scenes/bridge-hotspots';
             <app-hotspot-overlay
               class="absolute inset-0 z-15"
               [gameFlags]="state()?.flags || {}"
-              [debugMode]="false"
+              [debugMode]="true"
               (hotspotClicked)="onHotspotInteract($event)"
             ></app-hotspot-overlay>
+          }
+
+          <!-- Walkable Area Visualizer (Debug Only) -->
+          @if (!loading()) {
+            <div class="absolute border-2 border-green-500/30 bg-green-500/5 pointer-events-none z-10"
+                 style="left: 5%; top: 60%; width: 90%; height: 35%;">
+                 <span class="absolute top-0 left-0 bg-green-500 text-white text-[8px] px-1 uppercase px-1">Walkable Area</span>
+            </div>
           }
 
 
@@ -187,23 +195,24 @@ export class ViewportComponent {
   }
 
   onSceneClick(event: MouseEvent) {
-    // Only allow movement if no dialogue is active
+    // Solo se non c'è un dialogo attivo
     if (this.state()?.dialogueOptions?.length) return;
 
     const container = event.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
 
-    // Calculate percentage coordinates
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    // Coordinate in percentuale (0-100)
+    let x = ((event.clientX - rect.left) / rect.width) * 100;
+    let y = ((event.clientY - rect.top) / rect.height) * 100;
 
-    // Find player (Elias/Elisa)
+    // LIMITAZIONI AREA CAMMINABILE (WALKABLE AREA)
+    // Elias non può camminare oltre la console (Y < 60%) o fuori dalle mura (X < 5% o X > 95%)
+    x = Math.max(WALKABLE_AREA.minX, Math.min(WALKABLE_AREA.maxX, x));
+    y = Math.max(WALKABLE_AREA.minY, Math.min(WALKABLE_AREA.maxY, y));
+
     const player = this.state()?.characters.find(c => c.id === 'elias' || c.isPlayer);
     if (player) {
-      // Clamp Y to "floor" area (e.g. 10% to 98%) to prevent walking on walls/ceiling
-      // Increased range for full screen walkability
-      const clampedY = Math.max(10, Math.min(98, y));
-      player.targetPosition = { x, y: clampedY };
+      player.targetPosition = { x, y };
     }
   }
 
@@ -287,13 +296,13 @@ export class ViewportComponent {
 
   getCharacterTransform(char: GameCharacter): string {
     const y = char.position?.y || 50;
-    // Scala progressiva: 0.7 (lontano) -> 1.25 (vicino)
+    // Scala progressiva: 0.8 (lontano) -> 1.3 (vicino)
     const progress = Math.max(0, Math.min(1, (y - 15) / 80));
-    const totalScale = (char.scale || 1) * (0.7 + progress * 0.55);
+    const totalScale = (char.scale || 1) * (0.8 + progress * 0.5);
 
-    // translate(-50%, -100%) ancora perfettamente i piedi (base del div) al punto Y
-    // transform-origin: bottom è fondamentale per scalare dai piedi
-    return `translate(-50%, -100%) scale(${totalScale})`;
+    // Ancoraggio all'88% Y: calibrato per far coincidere il punto del click
+    // esattamente con la base dei piedi nel frame da 256px di medico.png
+    return `translate(-50%, -88%) scale(${totalScale})`;
   }
 
   getFlipTransform(char: GameCharacter): string {
@@ -365,15 +374,12 @@ export class ViewportComponent {
       currentFrame = 0;
     }
 
-    // Calcolo posizione: Usiamo 256px come distanza tra le righe (rowHeight)
-    // dato che l'utente ha indicato che i frame sono molto distanti in verticale.
+    // Calcolo posizione: Usiamo 256px come altezza dello slot (rowHeight)
     const frameWidth = 128;
     const rowHeight = 256;
-    const containerHeight = 220; // Aumentato per sicurezza
-    const headRoom = 60;   // Spazio vuoto garantito sopra l'inizio del frame 256px
 
     const xPos = -(currentFrame * frameWidth);
-    const yPos = -(row * rowHeight) + headRoom;
+    const yPos = -(row * rowHeight);
 
     // Determine transform for flipping (Solo riga 0)
     let transform = 'none';
@@ -383,14 +389,14 @@ export class ViewportComponent {
 
     return {
       'width.px': frameWidth,
-      'height.px': containerHeight,
+      'height.px': rowHeight,
       'background-image': `url(${this.getSpriteSheet(char)})`,
       'background-size': '1024px auto',
       'background-position': `${xPos}px ${yPos}px`,
       'padding-bottom.px': 0,
       'background-repeat': 'no-repeat',
       'transform': transform,
-      'transform-origin': 'bottom center', // I piedi restano ancorati al fondo del div
+      'transform-origin': 'bottom center',
       'overflow': 'visible',
       'image-rendering': 'pixelated'
     };

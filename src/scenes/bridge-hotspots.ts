@@ -30,155 +30,93 @@ export interface HotspotArea {
  * Basata sull'immagine della scena
  */
 export const BRIDGE_HOTSPOTS: HotspotArea[] = [
-    // 1. CONSOLE PILOTA (Sinistra - Monitor verde con tastiera)
+    // 1. CONSOLE PILOTA (Sinistra)
     {
         id: 'pilot_console',
         name: 'Console Pilota',
-        description: 'Postazione di controllo principale con monitor verde e tastiera. Gestisce i sistemi di volo.',
+        description: 'Postazione di controllo principale. Monitor verdi attivi.',
         type: 'interactable',
         bounds: {
-            x: 4,
-            y: 35,
-            width: 18,
-            height: 35
+            x: 5,
+            y: 45,
+            width: 25,
+            height: 15
         },
         status: 'unlocked'
     },
 
-    // 2. SEDIA PILOTA (DISABLED FOR NOW)
-    {
-        id: 'pilot_chair',
-        name: 'Sedia Pilota',
-        description: 'Sedia ergonomica della postazione di pilotaggio.',
-        type: 'interactable',
-        bounds: {
-            x: 24.1,
-            y: 48,
-            width: 12,
-            height: 20.2
-        },
-        image: '/sedia pilota.png'
-    },
-
-    // 3. PANNELLO CONTROLLO CENTRALE SUPERIORE
-    {
-        id: 'central_upper_panel',
-        name: 'Pannello Controllo Centrale',
-        description: 'Console centrale con display di navigazione e sistemi principali.',
-        type: 'interactable',
-        bounds: {
-            x: 27,
-            y: 25,
-            width: 15,
-            height: 20
-        },
-        status: 'locked'
-    },
-
-    // 4. CONSOLE NAVIGAZIONE (Display verde centrale)
+    // 2. COMPUTER NAVIGAZIONE (Centro)
     {
         id: 'nav_computer',
         name: 'Computer Navigazione',
         description: 'Sistema di navigazione stellare. Richiede autenticazione.',
         type: 'interactable',
         bounds: {
-            x: 27,
-            y: 45,
-            width: 15,
-            height: 15
+            x: 35,
+            y: 42,
+            width: 30,
+            height: 12
         },
         status: 'locked'
     },
 
-    // 5. PORTA DI USCITA (Centro)
+    // 3. PORTA PRINCIPALE (Sfondo Centro)
     {
         id: 'main_door',
         name: 'Porta Principale',
-        description: 'Porta di accesso al corridoio principale della nave.',
+        description: 'Accesso al corridoio. Attualmente bloccata.',
         type: 'exit',
         bounds: {
             x: 38,
-            y: 48,
-            width: 16,
-            height: 50
+            y: 45,
+            width: 24,
+            height: 35
         },
         status: 'locked'
     },
 
-    // 6. TUBO CHE PERDE / CAVI EMERGENZA (Alto - rossi)
-    {
-        id: 'damaged_pipe',
-        name: 'Tubo che Perde',
-        description: 'Condotto danneggiato che emette vapore. Necessita riparazione.',
-        type: 'interactable',
-        bounds: {
-            x: 30,
-            y: 15,
-            width: 20,
-            height: 12
-        },
-        status: 'broken',
-        visibleWhen: (flags) => !flags['pipe_fixed']
-    },
-
-    // 7. PANNELLO DESTRO (Console con luci rosse/verdi)
-    {
-        id: 'right_panel',
-        name: 'Pannello Sistemi',
-        description: 'Console di monitoraggio dei sistemi vitali e energetici.',
-        type: 'interactable',
-        bounds: {
-            x: 68,
-            y: 30,
-            width: 18,
-            height: 35
-        }
-    },
-
-    // 8. CAPSULA CRIOGENICA (Destra - struttura verde)
+    // 4. CAPSULA CRIOGENICA (Destra)
     {
         id: 'cryo_pod',
-        name: 'Capsula Criogenica',
-        description: 'Unità medica di emergenza. Qualcuno è all\'interno.',
+        name: 'Unità Medica',
+        description: 'Capsula di ibernazione d\'emergenza.',
         type: 'interactable',
         bounds: {
-            x: 75,
-            y: 50,
-            width: 18,
-            height: 35
+            x: 70,
+            y: 48,
+            width: 25,
+            height: 25
         },
         status: 'occupied'
     },
 
-    // 9. LUCI EMERGENZA (Alto - rosse lampeggianti)
+    // 5. CAVIDI EMERGENZA (Soffitto/Parete Alta)
     {
-        id: 'emergency_lights',
-        name: 'Luci Emergenza',
-        description: 'Sistema di allarme attivo. Luci rosse rotanti.',
+        id: 'damaged_pipe',
+        name: 'Condotto Danneggiato',
+        description: 'Cavi esposti che emettono scintille.',
         type: 'interactable',
         bounds: {
-            x: 15,
-            y: 8,
-            width: 70,
-            height: 8
+            x: 20,
+            y: 25,
+            width: 60,
+            height: 10
         },
-        visibleWhen: (flags) => flags['emergency_active'] !== false
-    },
-
-    // 10. PANNELLI INFERIORI (Console basse)
-    {
-        id: 'lower_panels',
-        name: 'Pannelli Inferiori',
-        description: 'Console di controllo secondarie e sistemi di supporto.',
-        type: 'interactable',
-        bounds: {
-            x: 25,
-            y: 75,
-            width: 50,
-            height: 15
-        }
+        status: 'broken'
     }
 ];
+
+/**
+ * WALKABLE AREA (Delinea dove il personaggio può camminare)
+ * Definisce un poligono o una serie di rettangoli sicuri.
+ */
+export const WALKABLE_AREA = {
+    minY: 60, // Elias non può salire oltre le console (sfondo)
+    maxY: 95, // Limite inferiore dello schermo
+    minX: 5,  // Muro sinistro
+    maxX: 95  // Muro destro
+};
+
 
 /**
  * POSIZIONI INIZIALI DEI PERSONAGGI
