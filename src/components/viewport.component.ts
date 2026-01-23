@@ -2,7 +2,7 @@ import { Component, input, output, ChangeDetectionStrategy, signal, computed, ef
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { GameState, PointOfInterest, DialogueOption, GameCharacter } from '../types';
 import { HotspotOverlayComponent } from './hotspot-overlay.component';
-import { HotspotArea, WALKABLE_AREA } from '../scenes/bridge-hotspots';
+import { HotspotArea, isPointInWalkableArea, WALKABLE_POLYGON } from '../scenes/bridge-hotspots';
 
 @Component({
   selector: 'app-viewport',
@@ -42,21 +42,12 @@ import { HotspotArea, WALKABLE_AREA } from '../scenes/bridge-hotspots';
           <!-- Hotspot Overlay Layer -->
           @if (!loading() && imageSrc()) {
             <app-hotspot-overlay
-              class="absolute inset-0 z-15"
+              class="absolute inset-0 z-30"
               [gameFlags]="state()?.flags || {}"
-              [debugMode]="true"
+              [debugMode]="false"
               (hotspotClicked)="onHotspotInteract($event)"
             ></app-hotspot-overlay>
           }
-
-          <!-- Walkable Area Visualizer (Debug Only) -->
-          @if (!loading()) {
-            <div class="absolute border-2 border-green-500/30 bg-green-500/5 pointer-events-none z-10"
-                 style="left: 5%; top: 60%; width: 90%; height: 35%;">
-                 <span class="absolute top-0 left-0 bg-green-500 text-white text-[8px] px-1 uppercase px-1">Walkable Area</span>
-            </div>
-          }
-
 
         <!-- Character Sprites Layer - REAL PIXEL ART SPRITES -->
         @if (!loading()) {
@@ -205,15 +196,29 @@ export class ViewportComponent {
     let x = ((event.clientX - rect.left) / rect.width) * 100;
     let y = ((event.clientY - rect.top) / rect.height) * 100;
 
-    // LIMITAZIONI AREA CAMMINABILE (WALKABLE AREA)
-    // Elias non può camminare oltre la console (Y < 60%) o fuori dalle mura (X < 5% o X > 95%)
-    x = Math.max(WALKABLE_AREA.minX, Math.min(WALKABLE_AREA.maxX, x));
-    y = Math.max(WALKABLE_AREA.minY, Math.min(WALKABLE_AREA.maxY, y));
+    // IMPORTANTE: Controllo Area Calpestabile Poligonale (Disegno utente)
+    import('../scenes/bridge-hotspots').then(m => {
+      // 1. Verifica se il punto cliccato è dentro il poligono bianco
+      if (!m.isPointInWalkableArea(x, y)) {
+        console.log("Punto fuori dall'area calpestabile!");
+        return;
+      }
 
-    const player = this.state()?.characters.find(c => c.id === 'elias' || c.isPlayer);
-    if (player) {
-      player.targetPosition = { x, y };
-    }
+      // 2. Controllo Collisioni con Oggetti (isObstacle)
+      const isObstacle = m.BRIDGE_HOTSPOTS.some(h =>
+        h.isObstacle && m.isPointInHotspot(x, y, h)
+      );
+
+      if (isObstacle) {
+        console.log("Collisione con oggetto rilevata!");
+        return;
+      }
+
+      const player = this.state()?.characters.find(c => c.id === 'elias' || c.isPlayer);
+      if (player) {
+        player.targetPosition = { x, y };
+      }
+    });
   }
 
   updateCharacterPositions() {
@@ -296,9 +301,13 @@ export class ViewportComponent {
 
   getCharacterTransform(char: GameCharacter): string {
     const y = char.position?.y || 50;
-    // Scala progressiva: 0.8 (lontano) -> 1.3 (vicino)
-    const progress = Math.max(0, Math.min(1, (y - 15) / 80));
-    const totalScale = (char.scale || 1) * (0.8 + progress * 0.5);
+
+    // NUOVA REGOLA DI PROFONDITÀ:
+    // Area 45 (Sfondo): 0.7 (Mezzo punto più piccolo)
+    // Area 85 (Primo Piano): 1.3 (Dimensione attuale)
+    // Range: 85 - 45 = 40
+    const progress = Math.max(0, Math.min(1, (y - 45) / 40));
+    const totalScale = (char.scale || 1) * (0.7 + progress * 0.6);
 
     // Ancoraggio all'88% Y: calibrato per far coincidere il punto del click
     // esattamente con la base dei piedi nel frame da 256px di medico.png

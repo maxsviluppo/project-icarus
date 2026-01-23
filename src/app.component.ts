@@ -8,12 +8,13 @@ import { TerminalComponent } from './components/terminal.component';
 import { ViewportComponent } from './components/viewport.component';
 import { ActionBarComponent, ActionType } from './components/action-bar.component';
 import { InventoryPanelComponent } from './components/inventory-panel.component';
+import { GameMenuComponent } from './components/game-menu.component';
 import { GameState, LogEntry, PointOfInterest, DialogueOption } from './types';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, TerminalComponent, ViewportComponent, ActionBarComponent, InventoryPanelComponent],
+  imports: [CommonModule, FormsModule, TerminalComponent, ViewportComponent, ActionBarComponent, InventoryPanelComponent, GameMenuComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent implements OnInit {
@@ -201,20 +202,14 @@ export class AppComponent implements OnInit {
   }
 
   /**
-   * Test: Mostra un dialogo di esempio
+   * Termina la sessione (Exit)
    */
-  testDialogue(characterId: string) {
-    const dialogues: Record<string, string> = {
-      'elias': 'Comandante Elias: Tutti ai posti di combattimento!',
-      'sarah': 'Sarah: I sistemi di navigazione sono offline...',
-      'kael': 'Kael: Sto cercando di ripristinare l\'energia.',
-      'mina': 'Mina: Abbiamo bisogno di assistenza medica immediata!'
-    };
-
-    this.dialogueService.showDialogue({
-      characterId,
-      text: dialogues[characterId] || 'Test dialogo',
-      duration: 3000
-    });
+  terminateSession() {
+    if (confirm('TERMINARE LA SESSIONE? Tutti i dati non salvati andranno persi.')) {
+      window.close(); // Nota: spesso i browser bloccano window.close() se non aperta da script
+      this.addLog('system', 'SESSIONE TERMINATA.');
+      // Fallback: reset game
+      location.reload();
+    }
   }
 }

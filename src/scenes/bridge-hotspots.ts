@@ -23,6 +23,8 @@ export interface HotspotArea {
     visibleWhen?: (flags: Record<string, boolean>) => boolean;
     // Immagine opzionale da sovrapporre all'area (es. sedia pilota)
     image?: string;
+    // FLAG COLLISIONE: se true, il personaggio non può entrarci
+    isObstacle?: boolean;
 }
 
 /**
@@ -38,11 +40,12 @@ export const BRIDGE_HOTSPOTS: HotspotArea[] = [
         type: 'interactable',
         bounds: {
             x: 5,
-            y: 45,
+            y: 33,      // Alzata a 33
             width: 25,
             height: 15
         },
-        status: 'unlocked'
+        status: 'unlocked',
+        isObstacle: true // NON CALPESTABILE
     },
 
     // 2. COMPUTER NAVIGAZIONE (Centro)
@@ -52,12 +55,13 @@ export const BRIDGE_HOTSPOTS: HotspotArea[] = [
         description: 'Sistema di navigazione stellare. Richiede autenticazione.',
         type: 'interactable',
         bounds: {
-            x: 35,
-            y: 42,
+            x: 50,      // Spostato per far finire il lato destro a 80
+            y: 27,      // Alzato a 27
             width: 30,
             height: 12
         },
-        status: 'locked'
+        status: 'locked',
+        isObstacle: true // NON CALPESTABILE
     },
 
     // 3. PORTA PRINCIPALE (Sfondo Centro)
@@ -67,10 +71,10 @@ export const BRIDGE_HOTSPOTS: HotspotArea[] = [
         description: 'Accesso al corridoio. Attualmente bloccata.',
         type: 'exit',
         bounds: {
-            x: 38,
-            y: 45,
-            width: 24,
-            height: 35
+            x: 32.4,
+            y: 25.0,
+            width: 20.6,
+            height: 25.7 // 50.7 - 25.0
         },
         status: 'locked'
     },
@@ -82,12 +86,13 @@ export const BRIDGE_HOTSPOTS: HotspotArea[] = [
         description: 'Capsula di ibernazione d\'emergenza.',
         type: 'interactable',
         bounds: {
-            x: 70,
-            y: 48,
-            width: 25,
-            height: 25
+            x: 84,      // Spostato il bordo sinistro a 84
+            y: 25,
+            width: 11,  // Ridotta la larghezza (95 - 84)
+            height: 23
         },
-        status: 'occupied'
+        status: 'occupied',
+        isObstacle: true // NON CALPESTABILE
     },
 
     // 5. CAVIDI EMERGENZA (Soffitto/Parete Alta)
@@ -98,43 +103,59 @@ export const BRIDGE_HOTSPOTS: HotspotArea[] = [
         type: 'interactable',
         bounds: {
             x: 20,
-            y: 25,
+            y: 14,      // Alzato in modo che il fondo (14+10) sia a 24
             width: 60,
             height: 10
         },
         status: 'broken'
+    },
+
+    // 6. PANNELLO A TERRA (Calpestabile ma interattivo)
+    {
+        id: 'floor_panel',
+        name: 'Pannello a Terra',
+        description: 'Una piastra di metallo leggermente sollevata.',
+        type: 'interactable',
+        bounds: {
+            x: 45,
+            y: 75,
+            width: 10,
+            height: 8
+        },
+        isObstacle: false // CALPESTABILE
     }
 ];
 
 /**
- * WALKABLE AREA (Delinea dove il personaggio può camminare)
- * Definisce un poligono o una serie di rettangoli sicuri.
+ * WALKABLE POLYGON (Delinea l'area bianca disegnata dall'utente)
  */
-export const WALKABLE_AREA = {
-    minY: 60, // Elias non può salire oltre le console (sfondo)
-    maxY: 95, // Limite inferiore dello schermo
-    minX: 5,  // Muro sinistro
-    maxX: 95  // Muro destro
-};
-
+export const WALKABLE_POLYGON = [
+    { x: 25, y: 52 },  // Angolo alto-sx (vicino porta)
+    { x: 65, y: 52 },  // Angolo alto-dx
+    { x: 82, y: 65 },  // Diagonale vicino Unità Medica
+    { x: 97, y: 78 },  // Bordo dx basso
+    { x: 97, y: 99 },  // Angolo basso dx
+    { x: 2, y: 99 },  // Angolo basso sx
+    { x: 2, y: 85 },  // Salita sx
+    { x: 18, y: 65 }   // Diagonale Console Pilota
+];
 
 /**
- * POSIZIONI INIZIALI DEI PERSONAGGI
- * Coordinate per il posizionamento degli sprite
+ * Funzione Point-in-Polygon (Ray Casting Algorithm)
+ * Verifica se un punto (x, y) è dentro l'area calpestabile
  */
-export const BRIDGE_CHARACTER_POSITIONS = {
-    // Elias (Player) - Vicino all'ingresso, centro-destra
-    elias: { x: 60, y: 70 },
+export function isPointInWalkableArea(x: number, y: number): boolean {
+    let inside = false;
+    for (let i = 0, j = WALKABLE_POLYGON.length - 1; i < WALKABLE_POLYGON.length; j = i++) {
+        const xi = WALKABLE_POLYGON[i].x, yi = WALKABLE_POLYGON[i].y;
+        const xj = WALKABLE_POLYGON[j].x, yj = WALKABLE_POLYGON[j].y;
 
-    // Sarah (Pilota) - Alla console di pilotaggio, in panico
-    sarah: { x: 20, y: 65 },
-
-    // Kael (Ingegnere) - Vicino ai pannelli destri
-    kael: { x: 75, y: 60 },
-
-    // Mina (Medico) - Svenuta nella capsula criogenica o a terra
-    mina: { x: 82, y: 75 }
-};
+        const intersect = ((yi > y) !== (yj > y)) &&
+            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
 
 /**
  * Helper function per verificare se un punto (x, y) è dentro un hotspot

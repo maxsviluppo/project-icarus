@@ -14,9 +14,6 @@ import { HotspotArea, getVisibleHotspots } from '../scenes/bridge-hotspots';
   template: `
     <div #container class="absolute inset-0 w-full h-full" (mousemove)="onMouseMove($event)">
       
-      <!-- DEBUG LAYER: Invisibile ma cattura i movimenti -->
-      <div class="absolute inset-0 pointer-events-auto z-0"></div>
-
       @for (hotspot of visibleHotspots(); track hotspot.id) {
         <div
           class="absolute group cursor-pointer pointer-events-auto z-10"
@@ -57,10 +54,9 @@ import { HotspotArea, getVisibleHotspots } from '../scenes/bridge-hotspots';
         </div>
       }
 
-      <!-- Floating Tooltip (Fumetto che segue il mouse) -->
       @if (hoveredHotspot()) {
         <div 
-          class="fixed pointer-events-none z-50 transition-opacity duration-150"
+          class="fixed pointer-events-none z-[999] transition-opacity duration-150"
           [style.left.px]="cursorPos().x + 20"
           [style.top.px]="cursorPos().y + 20"
           style="transform: translate(0, 0);" 
@@ -96,7 +92,17 @@ import { HotspotArea, getVisibleHotspots } from '../scenes/bridge-hotspots';
       </div>
     </div>
   `,
-  styles: []
+  styles: [`
+    :host {
+      display: block;
+      pointer-events: none;
+    }
+    
+    /* I singoli hotspot devono invece essere cliccabili */
+    .cursor-pointer {
+      pointer-events: auto;
+    }
+  `]
 })
 export class HotspotOverlayComponent {
   @ViewChild('container') containerRef!: ElementRef<HTMLElement>;

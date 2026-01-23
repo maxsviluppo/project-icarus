@@ -14,21 +14,9 @@
         <img src="/logo.png" alt="Vesper Project Apep" class="h-10 object-contain">
       </div>
 
-      <div class="flex items-center space-x-4">
-        <!-- Save/Load Controls -->
-        <div class="flex space-x-2">
-          <button (click)="saveGame()" class="p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all">
-            <img src="/save.png" alt="Save" class="w-8 h-8 object-contain opacity-80">
-          </button>
-          <button (click)="loadGame()" class="p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all">
-            <img src="/load.png" alt="Load" class="w-8 h-8 object-contain opacity-80 transform rotate-180">
-          </button>
-          <button (click)="toggleSidebar()" class="p-2 bg-slate-800/20 hover:bg-slate-950/80 rounded transition-all"
-            [class.bg-cyan-900]="isSidebarOpen()">
-            <img src="/terminal.png" alt="Data" class="w-8 h-8 object-contain opacity-80">
-          </button>
-        </div>
-      </div>
+      <!-- Game Menu (Save, Load, Exit) -->
+      <app-game-menu (save)="saveGame()" (load)="loadGame()" (exit)="terminateSession()">
+      </app-game-menu>
     </header>
 
     <!-- Middle Area (for Sidebar overlay) -->
