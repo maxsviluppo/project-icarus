@@ -21,6 +21,11 @@ export interface GameCharacter {
   scale?: number; // 1.0 = normal
   status?: 'idle' | 'talking' | 'panic' | 'unconscious';
   isPlayer?: boolean;
+  // Animation props
+  isMoving?: boolean;
+  direction?: 'left' | 'right';
+  spriteSheet?: string; // Overrides default sprite if present
+  targetPosition?: { x: number; y: number };
 }
 
 export interface GameState {

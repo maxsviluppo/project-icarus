@@ -2,33 +2,48 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { GeminiService } from './services/gemini.service';
+import { DialogueService } from './services/dialogue.service';
+import { InventoryService } from './services/inventory.service';
 import { TerminalComponent } from './components/terminal.component';
 import { ViewportComponent } from './components/viewport.component';
+import { ActionBarComponent, ActionType } from './components/action-bar.component';
+import { InventoryPanelComponent } from './components/inventory-panel.component';
 import { GameState, LogEntry, PointOfInterest, DialogueOption } from './types';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, TerminalComponent, ViewportComponent],
+  imports: [CommonModule, FormsModule, TerminalComponent, ViewportComponent, ActionBarComponent, InventoryPanelComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent implements OnInit {
   private gemini = inject(GeminiService);
-  
+  private dialogueService = inject(DialogueService);
+  inventoryService = inject(InventoryService); // Public per template binding
+
   // State
   gameState = signal<GameState | null>(null);
   logs = signal<LogEntry[]>([]);
   currentImage = signal<string>('');
   isLoading = signal<boolean>(true);
-  
+
   // Inventory display
   inventory = signal<string[]>([]);
   selectedItem = signal<string | null>(null);
-  
+
   // Custom input
   customInput = signal<string>('');
 
+  // UI State
+  isSidebarOpen = signal<boolean>(false); // Default chiusa per full immersion
+
+  toggleSidebar() {
+    this.isSidebarOpen.update(v => !v);
+  }
+
   ngOnInit() {
+    // Imposta l'immagine statica del ponte di comando come default
+    this.currentImage.set('/bridge-command-room.png');
     this.addLog('system', 'Inizializzazione Vesper Protocol...');
     this.startNewGame();
   }
@@ -74,14 +89,14 @@ export class AppComponent implements OnInit {
 
   async handleInteraction(poi: PointOfInterest) {
     if (this.isLoading()) return;
-    
+
     let action = '';
-    
+
     // Inventory Usage Logic (Scripting)
     if (this.selectedItem() && poi.type !== 'exit' && poi.type !== 'pickup') {
       // If we have an item selected and click an interactive object/character
       action = `Usa ${this.selectedItem()} su ${poi.name}`;
-      
+
       // Auto-deselect after attempting use, or keep it? 
       // Generally better to reset to avoid accidental clicks
       this.selectedItem.set(null);
@@ -99,9 +114,9 @@ export class AppComponent implements OnInit {
   }
 
   async handleDialogue(option: DialogueOption) {
-     if (this.isLoading()) return;
-     const action = `Scelgo opzione dialogo: "${option.label}"`;
-     this.processAction(action);
+    if (this.isLoading()) return;
+    const action = `Scelgo opzione dialogo: "${option.label}"`;
+    this.processAction(action);
   }
 
   async submitCustomCommand() {
@@ -114,7 +129,7 @@ export class AppComponent implements OnInit {
   private async processAction(actionText: string) {
     this.addLog('action', `> ${actionText}`);
     this.isLoading.set(true);
-    
+
     try {
       const newState = await this.gemini.sendAction(actionText);
       await this.updateGameState(newState);
@@ -126,13 +141,27 @@ export class AppComponent implements OnInit {
   }
 
   private async updateGameState(state: GameState) {
+    // Ensure Elias is present (visual integrity fallback)
+    if (!state.characters) state.characters = [];
+    if (!state.characters.find(c => c.id === 'elias' || c.id === 'Elias')) {
+      state.characters.push({
+        id: 'elias',
+        name: 'Elias',
+        position: { x: 50, y: 56 },
+        scale: 1.67, // 1.67 * 1.2 ~= 2.0 visual scale
+        status: 'idle',
+        isPlayer: true,
+        isMoving: false,
+        direction: 'right'
+      });
+    }
     this.gameState.set(state);
-    
+
     // Update Narrative Log
     if (state.narrative) {
       this.addLog('narrative', state.narrative);
     }
-    
+
     // Update Inventory
     if (state.inventory) {
       this.inventory.set(state.inventory);
@@ -140,9 +169,9 @@ export class AppComponent implements OnInit {
 
     // Check for Visual Update
     if (state.visualCue) {
-       this.gemini.generateImage(state.visualCue).then(url => {
-         if (url) this.currentImage.set(url);
-       });
+      this.gemini.generateImage(state.visualCue).then(url => {
+        if (url) this.currentImage.set(url);
+      });
     }
 
     if (state.gameOver) {
@@ -152,5 +181,40 @@ export class AppComponent implements OnInit {
 
   private addLog(type: LogEntry['type'], text: string) {
     this.logs.update(prev => [...prev, { type, text }]);
+  }
+
+  // ========== NUOVI METODI LUCASARTS ==========
+
+  /**
+   * Gestisce la selezione di un'azione dalla Action Bar
+   */
+  onActionSelected(action: ActionType) {
+    this.addLog('system', `Azione selezionata: ${action}`);
+    // TODO: Implementare logica per cambiare cursore/modalità interazione
+  }
+
+  /**
+   * Gestisce il toggle dell'inventario
+   */
+  onInventoryToggled() {
+    this.inventoryService.toggleInventory();
+  }
+
+  /**
+   * Test: Mostra un dialogo di esempio
+   */
+  testDialogue(characterId: string) {
+    const dialogues: Record<string, string> = {
+      'elias': 'Comandante Elias: Tutti ai posti di combattimento!',
+      'sarah': 'Sarah: I sistemi di navigazione sono offline...',
+      'kael': 'Kael: Sto cercando di ripristinare l\'energia.',
+      'mina': 'Mina: Abbiamo bisogno di assistenza medica immediata!'
+    };
+
+    this.dialogueService.showDialogue({
+      characterId,
+      text: dialogues[characterId] || 'Test dialogo',
+      duration: 3000
+    });
   }
 }

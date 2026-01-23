@@ -9,7 +9,7 @@ export class GeminiService {
   private ai: GoogleGenAI;
   private model = 'gemini-2.5-flash';
   private imageModel = 'imagen-4.0-generate-001';
-  
+
   // Updated system instruction with Scene 1 Technical Script + Character Positioning
   private systemInstruction = `
 Sei il Lead Designer e il GAME ENGINE di un'avventura punta e clicca sci-fi intitolata 'Vesper: Missione Apep'. 
@@ -26,9 +26,10 @@ Regola d'oro: Quando descrivi una stanza, elenca sempre 'Punti di interesse', 'O
 
 --- VISUAL ENGINE: CHARACTER SPRITES ---
 Devi posizionare i personaggi nella scena usando coordinate X/Y (percentuali).
-- Elias (Player) è sempre presente.
+- Elias (Player) ID: 'elias'. Usa sempre questo ID.
 - Sarah, Kael, Mina devono essere posizionati logicamente sul ponte.
 - Esempio: "position": { "x": 50, "y": 80 } (50% sinistra, 80% dall'alto).
+- Animation States: Includi "isMoving": false e "direction": "right" nei personaggi.
 
 --- SCENA 1: PONTE DI COMANDO (LISTA TECNICA DEFINITIVA) ---
 
@@ -110,7 +111,9 @@ Struttura JSON richiesta:
   private chatHistory: any[] = [];
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env['API_KEY'] });
+    // API Key configurata direttamente
+    const apiKey = 'AIzaSyAZicKkpgek7z_h79J_UfWcgxM5Ib4H-RI';
+    this.ai = new GoogleGenAI({ apiKey: apiKey });
   }
 
   async startGame(): Promise<GameState> {
@@ -124,6 +127,7 @@ Sarah è nel panico.
 
 IMPORTANTE: 
 1. Includi Elias (Player) e gli altri personaggi nell'array "characters" con posizioni X/Y plausibili.
+   AGGIUNGI OBBLIGATORIAMENTE LO SPRITE DI ELIAS: { "id": "elias", "name": "Elias", "position": { "x": 50, "y": 70 }, "status": "idle", "isPlayer": true }
 2. Assicurati che 'visualCue' descriva la stanza VUOTA (senza persone), così posso sovrapporre gli sprite.
 Genera il JSON iniziale.
 `;
@@ -154,7 +158,7 @@ Genera il JSON iniziale.
     const json = localStorage.getItem('vesper_save_v1');
     // Enhanced safety check: explicitly reject "undefined" or "null" strings
     if (!json || json === 'undefined' || json === 'null') return null;
-    
+
     try {
       const data = JSON.parse(json);
       // Ensure structure is valid
@@ -200,22 +204,22 @@ Genera il JSON iniziale.
 
       // STRICT VALIDATION: Check for "undefined" string which causes JSON.parse to crash
       if (!cleanText || cleanText === 'undefined' || cleanText === 'null') {
-         console.warn("Invalid AI response text (undefined or empty):", cleanText);
-         return this.getFallbackState("Connection Lost (No Data)");
+        console.warn("Invalid AI response text (undefined or empty):", cleanText);
+        return this.getFallbackState("Connection Lost (No Data)");
       }
 
       try {
         const parsedState = JSON.parse(cleanText) as GameState;
-        
+
         // Only update history if parse succeeds
         this.chatHistory.push({ role: 'user', parts: [{ text: message }] });
         this.chatHistory.push({ role: 'model', parts: [{ text: cleanText }] });
-        
+
         // Limit history size
         if (this.chatHistory.length > 20) {
           this.chatHistory = this.chatHistory.slice(this.chatHistory.length - 10);
         }
-        
+
         return parsedState;
       } catch (parseError) {
         console.error("JSON Parse Error in sendMessage:", parseError);
@@ -231,12 +235,12 @@ Genera il JSON iniziale.
 
   private getFallbackState(reason: string): GameState {
     return {
-       roomName: "SYSTEM FAILURE",
-       narrative: `Errore critico nella simulazione neurale: ${reason}. Riprova il comando.`,
-       visualCue: "glitch art dark error screen",
-       pointsOfInterest: [],
-       inventory: [],
-       characters: []
+      roomName: "SYSTEM FAILURE",
+      narrative: `Errore critico nella simulazione neurale: ${reason}. Riprova il comando.`,
+      visualCue: "glitch art dark error screen",
+      pointsOfInterest: [],
+      inventory: [],
+      characters: []
     } as GameState;
   }
 
@@ -244,7 +248,7 @@ Genera il JSON iniziale.
     try {
       // Explicitly ask for no characters in the background render
       const styleSuffix = ", empty room background without characters, pixel art style, high resolution, dark sci-fi atmosphere inspired by LucasArts The Dig, side-view cutaway section, emergency red lighting, realistic technical details, 16:9 aspect ratio";
-      
+
       const response = await this.ai.models.generateImages({
         model: this.imageModel,
         prompt: prompt + styleSuffix,
@@ -254,7 +258,7 @@ Genera il JSON iniziale.
           aspectRatio: '16:9'
         }
       });
-      
+
       const b64 = response.generatedImages?.[0]?.image?.imageBytes;
       if (b64) {
         return `data:image/jpeg;base64,${b64}`;
@@ -262,7 +266,7 @@ Genera il JSON iniziale.
       return '';
     } catch (e) {
       console.warn("Image generation failed, using placeholder", e);
-      return ''; 
+      return '';
     }
   }
 }
