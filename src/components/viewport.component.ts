@@ -24,9 +24,9 @@ import { HotspotArea, isPointInWalkableArea, WALKABLE_POLYGON } from '../scenes/
         <!-- Scene Container - Full Screen Mobile -->
         <div class="relative w-full h-full max-h-full max-w-full shadow-2xl transition-transform duration-500" (click)="onSceneClick($event)">
           
-          <!-- Scene Background Image -->
+          <!-- Scene Background Image - Locked to 16:9 Grid (No Distortion) -->
           @if (imageSrc()) {
-            <img [src]="imageSrc()" alt="Scene" class="absolute inset-0 w-full h-full object-cover">
+            <img [src]="imageSrc()" alt="Scene" class="absolute inset-0 w-full h-full object-cover pixel-sprite">
           } @else {
              <div class="absolute inset-0 flex items-center justify-center p-10 text-center text-slate-700 bg-slate-900">
               <div>
@@ -302,20 +302,22 @@ export class ViewportComponent {
   getCharacterTransform(char: GameCharacter): string {
     const y = char.position?.y || 50;
 
-    // NUOVA REGOLA DI PROFONDITÀ:
-    // Area 45 (Sfondo): 0.7 (Mezzo punto più piccolo)
-    // Area 85 (Primo Piano): 1.3 (Dimensione attuale)
-    // Range: 85 - 45 = 40
-    const progress = Math.max(0, Math.min(1, (y - 45) / 40));
-    const totalScale = (char.scale || 1) * (0.7 + progress * 0.6);
+    // REGOLA DI PROFONDITÀ STABILIZZATA:
+    // Evitiamo sbalzi eccessivi. Se Y=50 (centro), scala=1.
+    // Range Y tipico calpestabile: 50 - 95.
 
-    // Ancoraggio all'88% Y: calibrato per far coincidere il punto del click
-    // esattamente con la base dei piedi nel frame da 256px di medico.png
-    return `translate(-50%, -88%) scale(${totalScale})`;
+    // Calcoliamo un progresso tra 40 e 100
+    const progress = Math.max(0, Math.min(1, (y - 40) / 60));
+    const depthScale = 0.8 + (progress * 0.45); // Range 0.8x (sfondo) a 1.25x (primo piano)
+
+    const totalScale = (char.scale || 1) * depthScale;
+
+    // Ancoraggio preciso alla base (Piedi)
+    return `translate(-50%, -90%) scale(${totalScale})`;
   }
 
   getFlipTransform(char: GameCharacter): string {
-    // Only flip if using Left/Right specific assets that need mirroring
+    // Se lo sprite guarda a sinistra ma lo sprite base guarda a destra, flippiamo
     return char.direction === 'left' ? 'scaleX(-1)' : 'none';
   }
 
@@ -333,13 +335,15 @@ export class ViewportComponent {
 
   // Determine if we should use sprite sheet rendering
   isSpriteSheet(char: GameCharacter): boolean {
-    // Abilitiamo lo sprite sheet per Elias
-    if (char.name === 'Elias' || char.id === 'elias') return true;
+    const name = (char.name || '').toLowerCase();
+    const id = (char.id || '').toLowerCase();
+    // Elias always uses his sheet
+    if (name === 'elias' || id === 'elias') return true;
     return false;
   }
 
   getSpriteSheet(char: GameCharacter): string {
-    if (char.name === 'Elias' || char.id === 'elias') return '/medico.png';
+    if (char.name === 'Elias' || char.id === 'elias') return '/medico.PNG';
     return '';
   }
 
@@ -347,66 +351,64 @@ export class ViewportComponent {
   getSpriteStyle(char: GameCharacter): { [klass: string]: any } {
     if (!this.isSpriteSheet(char)) return {};
 
-    const frameSize = 128; // Assuming 128x128 grid
+    const frameSize = 128;
     const framesPerRow = 8;
-
-    // Row Mapping for medico.png:
-    // Row 0: Horizontal Walk (Mirror for Left)
-    // Row 1: Walk Down (as specified: "seconda riga e il camminata verso il basso")
-    // Row ?: Walk Up (Assuming Row 2 until further notice)
-    // Idle uses the first image (Row 1, Frame 0 based on "la prima immagine e la posizione ferma" in the context of walk down)
-    // Actually, usually Row 1 is Walk Down. "prima immagine" might mean Row 1 Frame 0 when idle.
-
-    // MAPPING CORRETTO PER medico.png:
-    // Riga 0 (indice 0): Camminata Laterale (e fallback per UP)
-    // Riga 1 (indice 1): Camminata Frontale (DOWN)
-
-    let row = 1; // Default alla riga frontale
-    if (char.isMoving) {
-      switch (char.facing) {
-        case 'up': row = 0; break;    // Uso la riga side (0) come fallback per 'up'
-        case 'down': row = 1; break;  // La riga frontale è la 1
-        case 'left': row = 0; break;
-        case 'right': row = 0; break;
-        default: row = 1;
-      }
-    } else {
-      row = 1; // Idle front
-    }
-
-    let currentFrame = 0;
-    if (char.isMoving) {
-      const stride = 2.8;
-      const walkDist = char.walkDistance || 0;
-      currentFrame = Math.floor(walkDist / stride) % framesPerRow;
-    } else {
-      currentFrame = 0;
-    }
-
-    // Calcolo posizione: Usiamo 256px come altezza dello slot (rowHeight)
-    const frameWidth = 128;
     const rowHeight = 256;
 
-    const xPos = -(currentFrame * frameWidth);
-    const yPos = -(row * rowHeight);
+    let row = 1;
+    let currentFrame = 0;
+    let transformMultiplier = 'none';
 
-    // Determine transform for flipping (Solo riga 0)
-    let transform = 'none';
-    if (char.isMoving && char.facing === 'left' && row === 0) {
-      transform = 'scaleX(-1)';
+    if (char.isMoving) {
+      // MOVIMENTO: 8 frame per riga
+      const stride = 3.5; // Distanza percorsa per ogni frame (calibrato su velocità 0.4)
+      const walkDist = char.walkDistance || 0;
+      currentFrame = Math.floor(walkDist / stride) % framesPerRow;
+
+      switch (char.facing) {
+        case 'right':
+          row = 0; // Camminata Destra
+          break;
+        case 'left':
+          row = 0; // Camminata Destra fadi flippata
+          transformMultiplier = 'scaleX(-1)';
+          break;
+        case 'down':
+          row = 1; // Camminata Avanti
+          break;
+        case 'up':
+          row = 2; // Camminata Indietro
+          break;
+        default:
+          row = 1;
+      }
+    } else {
+      // IDLE STATE
+      row = 3;
+      const globalFrame = this.animFrame();
+      const cycleLength = 300; // Respiro ogni ~300 ticks (10s)
+      const animLength = 8;
+
+      const cyclePos = globalFrame % cycleLength;
+      currentFrame = cyclePos < animLength ? cyclePos : 0;
     }
 
+    const xPos = -(currentFrame * frameSize);
+    const yPos = -(row * rowHeight);
+
+    // Correzione offset verticale per row 3 (Idle) 
+    // medico.png ha i frame dell'ultima riga leggermente traslati in alto
+    let verticalCorrection = row === 3 ? '15px' : '0px';
+
     return {
-      'width.px': frameWidth,
+      'width.px': frameSize,
       'height.px': rowHeight,
       'background-image': `url(${this.getSpriteSheet(char)})`,
       'background-size': '1024px auto',
       'background-position': `${xPos}px ${yPos}px`,
-      'padding-bottom.px': 0,
       'background-repeat': 'no-repeat',
-      'transform': transform,
+      'transform': `${transformMultiplier} translateY(${verticalCorrection})`,
       'transform-origin': 'bottom center',
-      'overflow': 'visible',
       'image-rendering': 'pixelated'
     };
   }

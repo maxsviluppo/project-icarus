@@ -33,6 +33,7 @@ export interface GameCharacter {
 export interface GameState {
   roomName: string;
   narrative: string;
+  transitionVideo?: string; // Video filename for level transition
   visualCue: string;
   pointsOfInterest: PointOfInterest[];
   inventory: string[];

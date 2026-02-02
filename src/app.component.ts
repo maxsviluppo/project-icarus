@@ -28,6 +28,10 @@ export class AppComponent implements OnInit {
   currentImage = signal<string>('');
   isLoading = signal<boolean>(true);
 
+  // Video Playback State
+  isVideoPlaying = signal<boolean>(false);
+  currentVideoSrc = signal<string>('');
+
   // Inventory display
   inventory = signal<string[]>([]);
   selectedItem = signal<string | null>(null);
@@ -142,20 +146,36 @@ export class AppComponent implements OnInit {
   }
 
   private async updateGameState(state: GameState) {
-    // Ensure Elias is present (visual integrity fallback)
+    // 1. Memory Helper: Ensure Elias is present and characters have consistent scales
     if (!state.characters) state.characters = [];
-    if (!state.characters.find(c => c.id === 'elias' || c.id === 'Elias')) {
+
+    // Ensure Elias (Player) is persistent
+    const eliasIdx = state.characters.findIndex(c => c.id === 'elias' || c.name === 'Elias');
+    if (eliasIdx === -1) {
       state.characters.push({
         id: 'elias',
         name: 'Elias',
-        position: { x: 50, y: 56 },
-        scale: 1.67, // 1.67 * 1.2 ~= 2.0 visual scale
+        position: { x: 50, y: 75 },
+        scale: 1.25,
         status: 'idle',
         isPlayer: true,
         isMoving: false,
         direction: 'right'
       });
+    } else {
+      // Apply consistent scale if AI misses it
+      state.characters[eliasIdx].scale = state.characters[eliasIdx].scale || 1.25;
+      state.characters[eliasIdx].isPlayer = true;
     }
+
+    // Stabilize other characters
+    state.characters.forEach(c => {
+      const name = c.name.toLowerCase();
+      if (name === 'sarah') { c.id = 'sarah'; c.scale = c.scale || 1.15; }
+      if (name === 'kael') { c.id = 'kael'; c.scale = c.scale || 1.35; }
+      if (name === 'mina') { c.id = 'mina'; c.scale = c.scale || 1.15; }
+    });
+
     this.gameState.set(state);
 
     // Update Narrative Log
@@ -178,6 +198,29 @@ export class AppComponent implements OnInit {
     if (state.gameOver) {
       this.addLog('system', '--- CONNESSIONE TERMINATA ---');
     }
+
+    // Check for Level Transition Video
+    if (state.transitionVideo) {
+      this.playVideoTransition(state.transitionVideo);
+    }
+  }
+
+  /**
+   * Riproduce una cutscene video a schermo intero
+   * @param videoName Nome del file video in /public (es. 'win.mp4')
+   */
+  playVideoTransition(videoName: string) {
+    this.currentVideoSrc.set(`/${videoName}`);
+    this.isVideoPlaying.set(true);
+
+    // Il video gestirà autonomamente la fine tramite l'evento (ended) nel template
+  }
+
+  onVideoEnded() {
+    this.isVideoPlaying.set(false);
+    this.currentVideoSrc.set('');
+    // Qui si potrebbe triggerare il caricamento del livello successivo
+    this.addLog('system', 'Transizione completata. Caricamento sequenza successiva...');
   }
 
   private addLog(type: LogEntry['type'], text: string) {

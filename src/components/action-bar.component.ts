@@ -46,9 +46,10 @@ interface ActionIcon {
   `,
   styles: [`
     .action-bar-container {
-      position: fixed;
-      top: 85.9%;
-      left: 23%;
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 100;
       pointer-events: none; /* Lascia passare i click sopra la barra sfumata */
     }

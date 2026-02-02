@@ -1,4 +1,4 @@
-<div class="relative w-full h-screen bg-black overflow-hidden font-mono selection:bg-cyan-900 selection:text-white">
+<div class="relative w-full h-full bg-black overflow-hidden font-mono selection:bg-cyan-900 selection:text-white">
   <!-- FULL SCREEN VIEWPORT (Background Layer) -->
   <app-viewport [state]="gameState()" [imageSrc]="currentImage()" [loading]="isLoading()"
     (interact)="handleInteraction($event)" (dialogueChoice)="handleDialogue($event)" class="absolute inset-0 z-0">
@@ -56,5 +56,18 @@
   <app-inventory-panel [isOpen]="(inventoryService.isOpen$ | async) || false"
     [items]="(inventoryService.items$ | async) || []" (closed)="inventoryService.closeInventory()" class="z-[60]">
   </app-inventory-panel>
+
+  <!-- VIDEO OVERLAY (Transition Cutscenes) -->
+  @if (isVideoPlaying()) {
+  <div class="absolute inset-0 z-[100] bg-black flex items-center justify-center animate-fadeIn">
+    <video [src]="currentVideoSrc()" autoplay (ended)="onVideoEnded()" class="w-full h-full object-cover"></video>
+
+    <!-- Optional Skip Button -->
+    <button (click)="onVideoEnded()"
+      class="absolute bottom-8 right-8 text-white/50 hover:text-white text-xs tracking-widest uppercase border border-white/20 px-4 py-2 rounded">
+      Skip Sequence >>
+    </button>
+  </div>
+  }
 
 </div>
