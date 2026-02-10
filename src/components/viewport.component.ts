@@ -68,8 +68,8 @@ import { MEDIEVAL_HOTSPOTS, isPointInMedievalWalkableArea } from '../scenes/medi
                   [ngStyle]="getCharacterContainerStyle(char)"
                 >
                   <div class="relative w-full h-full group pointer-events-auto cursor-pointer" (click)="onInteractCharacter(char)">
-                    <!-- Shadow: Più chiara (bg-black/30) -->
-                    <div class="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-[28%] h-[5%] bg-black/30 blur-[1px] rounded-[100%] z-0"></div>
+                    <!-- Shadow: Irregolare e organica (macchia) -->
+                    <div class="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-[32%] h-[6%] bg-black/25 blur-[2px] rounded-[60%_40%_70%_30%] -skew-x-12 z-0"></div>
                     
                     @if (isSpriteSheet(char)) {
                        <div class="pixel-sprite relative w-full h-full z-10" [ngStyle]="getSpriteStyle(char)"></div>
@@ -211,7 +211,8 @@ export class ViewportComponent {
 
     const player = this.state()?.characters.find(c => c.isPlayer);
     if (player) {
-      player.targetPosition = { x, y };
+      // Offset Y (+2%) per allineare meglio i piedi al punto visivo del click
+      player.targetPosition = { x, y: y + 2 };
     }
   }
 
@@ -250,12 +251,19 @@ export class ViewportComponent {
           const visualDist = Math.sqrt(moveX * moveX + (moveY * 1.6) * (moveY * 1.6));
           char.walkDistance += visualDist;
 
-          if (Math.abs(dy) > Math.abs(dx) * 0.8) {
-            if (dy > 0) char.facing = 'down'; else char.facing = 'up';
+          if (isLeo) {
+            // Su diagonali perfette, il segno di dx e dy definisce univocamente il quadrante
+            char.facing = dy > 0 ? 'down' : 'up';
             char.direction = dx > 0 ? 'right' : 'left';
           } else {
-            if (dx > 0) { char.facing = 'right'; char.direction = 'right'; }
-            else { char.facing = 'left'; char.direction = 'left'; }
+            // Logica standard per Elias/Sarah/Mina
+            if (Math.abs(dy) > Math.abs(dx) * 0.8) {
+              if (dy > 0) char.facing = 'down'; else char.facing = 'up';
+              char.direction = dx > 0 ? 'right' : 'left';
+            } else {
+              if (dx > 0) { char.facing = 'right'; char.direction = 'right'; }
+              else { char.facing = 'left'; char.direction = 'left'; }
+            }
           }
         }
       } else {
@@ -298,12 +306,29 @@ export class ViewportComponent {
     const depthScale = 0.9 + (progress * 0.35);
 
     const finalWidth = baseWidthPerc * (char.scale || 1) * depthScale;
-    const finalHeight = finalWidth * aspectRatio * 1.7778;
+
+    // Compensazione differenziata: 'walkup' (UP) è visivamente troppo grande, lo riduciamo di più
+    let sizeCompensation = 1.0;
+    if (isLeo) {
+      // walkup.png: +2px circa --> 0.72
+      // walkok.png: manteniamo 0.82
+      sizeCompensation = (char.facing === 'up') ? 0.72 : 0.82;
+    }
+
+    const finalHeight = finalWidth * aspectRatio * 1.7778 * sizeCompensation;
+    const currentWidth = finalWidth * sizeCompensation;
+
+    let translateY = '-100%';
+
+    // Correzione allineamento verticale per evitare "salti" al cambio direzione
+    if (isLeo && char.facing === 'up') {
+      translateY = '-92%'; // Abbassa leggermente lo sprite walkup per allineare i piedi
+    }
 
     return {
-      'width': finalWidth + '%',
+      'width': currentWidth + '%',
       'height': finalHeight + '%',
-      'transform': 'translate(-50%, -100%)',
+      'transform': `translate(-50%, ${translateY})`,
       'z-index': '20'
     };
   }
@@ -329,7 +354,11 @@ export class ViewportComponent {
     const id = (char.id || '').toLowerCase();
     if (name === 'lisa' || id === 'lisa') return '/lisa.png';
     if (name === 'sarah' || id === 'sarah') return '/sarah-sheet.png';
-    if (name === 'leo' || id === 'leo') return '/walkok.png';
+    if (name === 'leo' || id === 'leo') {
+      // walkok.png = camminata verso il BASSO (diagonale)
+      // walkup.png = camminata verso l'ALTO (diagonale)
+      return char.facing === 'down' ? '/wolkok.png' : '/walkup.png';
+    }
     return '/medico2.png';
   }
 
@@ -351,6 +380,7 @@ export class ViewportComponent {
     };
 
     if (isLeo) {
+      // Configurazione base per walkok.png (6 righe x 7 colonne = 42 frame)
       config.frameSize = 1024 / 7;
       config.rowHeight = config.frameSize;
       config.framesPerRow = 7;
@@ -371,27 +401,58 @@ export class ViewportComponent {
       const walkDist = char.walkDistance || 0;
 
       if (isLeo) {
-        // SBLOCCO TUTTI I FRAME (7x7 = 49 frame)
-        // Il primo ciclo parte da 0, i successivi ripartono dalla seconda riga (frame 7)
-        const strideVal = Math.floor(walkDist / stride);
-        const loopStartFrame = 7; // Seconda riga
-        const totalFramesInSheet = 49;
-        const loopFramesCount = totalFramesInSheet - loopStartFrame; // 42
+        const isDown = char.facing === 'down';
 
+        // Parametri corretti secondo recap:
+        // DOWN -> walkok.png: 7 col, 6 righe, 42 frame. Loop start index 11.
+        // UP -> walkup.png: 6 col, 5 righe, 29 frame. Loop start 0.
+
+        const colsInSheet = isDown ? 7 : 6;
+        const rowsInSheet = isDown ? 6 : 5;
+        const totalFrames = isDown ? 42 : 29;
+        const loopStartFrame = isDown ? 11 : 0;
+
+        const strideVal = Math.floor(walkDist / stride);
+
+        // Loop Semplificato per test walkok
         let currentFrameIndex;
-        if (strideVal < totalFramesInSheet) {
-          currentFrameIndex = strideVal;
+        if (isDown) {
+          currentFrameIndex = strideVal % totalFrames;
+          // Se dopo il test funziona, ripristineremo il loop complesso
         } else {
-          currentFrameIndex = loopStartFrame + ((strideVal - totalFramesInSheet) % loopFramesCount);
+          currentFrameIndex = strideVal % totalFrames;
         }
 
-        row = Math.floor(currentFrameIndex / 7);
-        col = currentFrameIndex % 7;
+        row = Math.floor(currentFrameIndex / colsInSheet);
+        col = currentFrameIndex % colsInSheet;
 
-        // Reset offset e flip basato sulla direzione di movimento
-        config.verticalOffset = 0;
-        if (char.direction === 'right') transformMultiplier = 'scaleX(-1)';
+        config.framesPerRow = colsInSheet;
+        // Aggiorniamo totalRows locale per Leo
+        const leoTotalRows = rowsInSheet;
 
+        // Debug
+        if (isDown && currentFrameIndex < 5) {
+          console.log('Leo walkok:', {
+            facing: char.facing,
+            currentFrameIndex,
+            row,
+            col,
+            colsInSheet,
+            rowsInSheet,
+            spriteSheet: this.getSpriteSheet(char)
+          });
+        }
+
+        // Flip Logic
+        if (isDown) {
+          // Walkok (Down): Flip se va a destra (standard)
+          if (char.direction === 'right') transformMultiplier = 'scaleX(-1)';
+        } else {
+          // Walkup (Up): Invertito su richiesta utente -> Flip se va a sinistra
+          if (char.direction === 'left') transformMultiplier = 'scaleX(-1)';
+        }
+
+        return this.buildSpriteReturnObject(config, char, row, col, leoTotalRows, transformMultiplier);
       } else {
         // LOGICA STANDARD (Elias/Lisa)
         col = Math.floor(walkDist / stride) % config.framesPerRow;
@@ -418,11 +479,14 @@ export class ViewportComponent {
         col = Math.floor(globalFrame / 4) % 8;
         config.verticalOffset = 90;
       } else if (isLeo) {
-        // Leo Idle: Primo frame assoluto per test (Row 0, Col 0)
         row = 0;
         col = 0;
-        // Mantiene l'orientamento anche da fermo
         if (char.direction === 'right') transformMultiplier = 'scaleX(-1)';
+
+        const isDown = char.facing === 'down';
+        config.framesPerRow = isDown ? 7 : 6;
+        const leoTotalRows = isDown ? 6 : 5;
+        return this.buildSpriteReturnObject(config, char, row, col, leoTotalRows, transformMultiplier);
       } else {
         row = 3;
         config.verticalOffset = 90;
@@ -434,14 +498,24 @@ export class ViewportComponent {
       }
     }
 
-    const totalRows = isLeo ? 7 : 4;
+    const totalRows = 4; // Elias default
+    return this.buildSpriteReturnObject(config, char, row, col, totalRows, transformMultiplier);
+  }
+
+  private buildSpriteReturnObject(config: any, char: GameCharacter, row: number, col: number, totalRows: number, transformMultiplier: string) {
+    // Calcolo sicuro della posizione per evitare divisione per zero
+    const colDivisor = Math.max(1, config.framesPerRow - 1);
+    const rowDivisor = Math.max(1, totalRows - 1);
+
+    const bgPosX = (col / colDivisor) * 100;
+    const bgPosY = (row / rowDivisor) * 100;
 
     return {
       'width': '100%',
       'height': '100%',
       'background-image': `url("${this.getSpriteSheet(char)}")`,
       'background-size': `${config.framesPerRow * 100}% auto`,
-      'background-position': `${(col / (config.framesPerRow - 1)) * 100}% ${(row / (totalRows - 1)) * 100}%`,
+      'background-position': `${bgPosX}% ${bgPosY}%`,
       'background-repeat': 'no-repeat',
       'transform': transformMultiplier !== 'none' ? transformMultiplier : 'none',
       'transform-origin': 'bottom center',
