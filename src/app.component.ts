@@ -43,8 +43,8 @@ export class AppComponent implements OnInit {
 
   // UI State
   isSidebarOpen = signal<boolean>(false); // Default chiusa per full immersion
-  activePlayerId = signal<string | 'none'>('lisa'); // 'none' disattiva il pilota
-  renderCharacters = signal<boolean>(false); // Gestisce la visibilità degli sprite
+  activePlayerId = signal<string | 'none'>('leo'); // Impostato Leo come pilota principale per calibrazione
+  renderCharacters = signal<boolean>(true); // Attivato di default per vedere Leo
 
   isMedievalEnvironment = computed(() => {
     const s = this.gameState();
@@ -56,10 +56,11 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    // Imposta l'immagine statica del ponte di comando come default
-    this.currentImage.set('/bridge-command-room.png');
-    this.addLog('system', 'Inizializzazione Vesper Protocol...');
-    this.startNewGame();
+    // Caricamento diretto ambiente medioevale per calibrazione Leo
+    this.currentImage.set('/stanza_vuota.png');
+    this.renderCharacters.set(true);
+    this.addLog('system', 'MODALITÀ CALIBRAZIONE: Accesso Archivio Storico (Leo)...');
+    this.changeEnvironment('medieval');
   }
 
   async startNewGame() {

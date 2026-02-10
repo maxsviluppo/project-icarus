@@ -2,10 +2,10 @@ import { Component, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-    selector: 'app-medieval-menu',
-    standalone: true,
-    imports: [CommonModule],
-    template: `
+  selector: 'app-medieval-menu',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
     <!-- Medieval Trigger Button -->
     <div class="menu-trigger" (click)="toggleMenu()">
       <div class="trigger-icon" [class.open]="isOpen()">
@@ -64,6 +64,10 @@ import { CommonModule } from '@angular/common';
               <div class="avatar"><img src="/character-sarah.png"></div>
               <span>SARAH</span>
             </button>
+            <button class="pilot-btn" (click)="onChangeCharacter('leo')">
+              <div class="avatar"><img src="/walkok.png"></div>
+              <span>LEO</span>
+            </button>
             <button class="pilot-btn ghost" (click)="onChangeCharacter('none')">
               <div class="avatar">Ø</div>
               <span>GHOST</span>
@@ -94,7 +98,7 @@ import { CommonModule } from '@angular/common';
       <div class="parchment-bottom"></div>
     </div>
   `,
-    styles: [`
+  styles: [`
     :host { display: block; }
 
     .menu-trigger {
@@ -269,34 +273,34 @@ import { CommonModule } from '@angular/common';
   `]
 })
 export class MedievalMenuComponent {
-    isOpen = signal(false);
+  isOpen = signal(false);
 
-    save = output<void>();
-    load = output<void>();
-    exit = output<void>();
-    changeCharacter = output<string>();
-    changeEnvironment = output<string>();
-    toggleCharacters = output<void>();
+  save = output<void>();
+  load = output<void>();
+  exit = output<void>();
+  changeCharacter = output<string>();
+  changeEnvironment = output<string>();
+  toggleCharacters = output<void>();
 
-    toggleMenu() {
-        this.isOpen.update(v => !v);
-    }
+  toggleMenu() {
+    this.isOpen.update(v => !v);
+  }
 
-    onChangeEnvironment(envId: string) {
-        this.changeEnvironment.emit(envId);
-        this.toggleMenu();
-    }
+  onChangeEnvironment(envId: string) {
+    this.changeEnvironment.emit(envId);
+    this.toggleMenu();
+  }
 
-    onChangeCharacter(charId: string) {
-        this.changeCharacter.emit(charId);
-        this.toggleMenu();
-    }
+  onChangeCharacter(charId: string) {
+    this.changeCharacter.emit(charId);
+    this.toggleMenu();
+  }
 
-    onToggleCharacters() {
-        this.toggleCharacters.emit();
-    }
+  onToggleCharacters() {
+    this.toggleCharacters.emit();
+  }
 
-    onSave() { this.save.emit(); this.toggleMenu(); }
-    onLoad() { this.load.emit(); this.toggleMenu(); }
-    onExit() { this.exit.emit(); this.toggleMenu(); }
+  onSave() { this.save.emit(); this.toggleMenu(); }
+  onLoad() { this.load.emit(); this.toggleMenu(); }
+  onExit() { this.exit.emit(); this.toggleMenu(); }
 }

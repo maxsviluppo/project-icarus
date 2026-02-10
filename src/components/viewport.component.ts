@@ -4,6 +4,7 @@ import { GameState, PointOfInterest, DialogueOption, GameCharacter } from '../ty
 import { HotspotOverlayComponent } from './hotspot-overlay.component';
 import { HotspotArea, BRIDGE_HOTSPOTS, isPointInWalkableArea } from '../scenes/bridge-hotspots';
 import { CALIBRATION_HOTSPOTS, isPointInCalibrationWalkableArea } from '../scenes/calibration-hotspots';
+import { MEDIEVAL_HOTSPOTS, isPointInMedievalWalkableArea } from '../scenes/medieval-hotspots';
 
 @Component({
   selector: 'app-viewport',
@@ -30,7 +31,7 @@ import { CALIBRATION_HOTSPOTS, isPointInCalibrationWalkableArea } from '../scene
             <img src="/sfondo.png" alt="Full Background" class="w-full h-full object-cover opacity-80 animate-slowPulse">
           </div>
 
-          <!-- Scene Background Image - Locked to 16:9 Grid (No Distortion) -->
+          <!-- Scene Background Image - Centered and Scaled -->
           @if (imageSrc()) {
             <img [src]="imageSrc()" alt="Scene" class="absolute inset-0 w-full h-full object-contain pixel-sprite z-0" [class.room-centered]="isMedieval()">
           } @else {
@@ -60,45 +61,33 @@ import { CALIBRATION_HOTSPOTS, isPointInCalibrationWalkableArea } from '../scene
         @if (!loading() && renderCharacters()) {
           <div class="absolute inset-0 z-20 pointer-events-none">
             @for (char of state()?.characters; track char.id) {
-               <div 
-                 class="absolute flex flex-col items-center"
-                 [style.left.%]="char.position?.x || 50"
-                 [style.top.%]="char.position?.y || 50"
-                 [style.transform]="getCharacterTransform(char)"
-               >
-                  <div class="relative group pointer-events-auto cursor-pointer" (click)="onInteractCharacter(char)">
-                    <div class="absolute -bottom-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-black/50 blur-lg rounded-[100%]"></div>
+                <div 
+                  class="absolute"
+                  [style.left.%]="char.position?.x || 50"
+                  [style.top.%]="char.position?.y || 50"
+                  [ngStyle]="getCharacterContainerStyle(char)"
+                >
+                  <div class="relative w-full h-full group pointer-events-auto cursor-pointer" (click)="onInteractCharacter(char)">
+                    <!-- Shadow: Più chiara (bg-black/30) -->
+                    <div class="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-[28%] h-[5%] bg-black/30 blur-[1px] rounded-[100%] z-0"></div>
                     
                     @if (isSpriteSheet(char)) {
-                       <div class="pixel-sprite" [ngStyle]="getSpriteStyle(char)"></div>
+                       <div class="pixel-sprite relative w-full h-full z-10" [ngStyle]="getSpriteStyle(char)"></div>
                     } @else if (getCharacterSprite(char.name)) {
-                      <img 
-                        [src]="getCharacterSprite(char.name)" 
-                        [alt]="char.name"
-                        class="w-auto h-32 sm:h-40 object-contain pixel-sprite drop-shadow-2xl"
-                        [class.animate-bounce]="char.status === 'panic'"
-                        [style.transform]="getFlipTransform(char)"
-                      >
-                    } @else {
-                      <div 
-                        class="w-16 h-32 sm:w-20 sm:h-40 bg-gradient-to-b rounded-lg border-3 border-black/30 shadow-2xl relative overflow-hidden"
-                        [class.from-cyan-600]="char.isPlayer"
-                        [class.to-cyan-800]="char.isPlayer"
-                        [class.from-orange-600]="!char.isPlayer"
-                        [class.to-orange-800]="!char.isPlayer"
-                        [class.animate-bounce]="char.status === 'panic'"
-                        [style.transform]="getFlipTransform(char)"
-                      >
-                        <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 sm:w-10 sm:h-10 bg-white/10 rounded-full blur-sm"></div>
-                        <div class="absolute bottom-0 left-0 w-full h-1/2 bg-black/20"></div>
-                      </div>
+                       <img 
+                         [src]="getCharacterSprite(char.name)" 
+                         [alt]="char.name"
+                         class="w-full h-full object-contain pixel-sprite drop-shadow-2xl relative z-10"
+                         [class.animate-bounce]="char.status === 'panic'"
+                         [style.transform]="getFlipTransform(char)"
+                       >
                     }
-
-                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 px-2 py-0.5 rounded border border-cyan-500/50 opacity-0 group-hover:opacity-100 transition-all transform scale-90 group-hover:scale-100 whitespace-nowrap pointer-events-none">
-                      <span class="text-[8px] text-cyan-400 font-bold uppercase tracking-widest">{{char.name}}</span>
-                    </div>
                   </div>
-               </div>
+
+                  <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 px-2 py-0.5 rounded border border-cyan-500/50 opacity-0 group-hover:opacity-100 transition-all transform scale-90 group-hover:scale-100 whitespace-nowrap pointer-events-none z-20">
+                    <span class="text-[8px] text-cyan-400 font-bold uppercase tracking-widest">{{char.name}}</span>
+                  </div>
+                </div>
             }
           </div>
         }
@@ -168,19 +157,26 @@ export class ViewportComponent {
     if (s?.roomName === 'Test Room 01' || s?.flags?.['calibration_mode']) {
       return CALIBRATION_HOTSPOTS;
     }
+    if (s?.roomName === 'Medieval Chamber' || s?.flags?.['medieval_mode']) {
+      return MEDIEVAL_HOTSPOTS;
+    }
     return BRIDGE_HOTSPOTS;
   });
 
   constructor() {
-    this.animationLoop = setInterval(() => {
-      this.tickCount++;
-      this.updateCharacterPositions();
-      this.cdr.markForCheck();
-    }, 30);
+    // Start Animation Loop (RAF)
+    this.animate();
+  }
+
+  animate() {
+    this.tickCount++;
+    this.updateCharacterPositions();
+    this.cdr.markForCheck();
+    this.animationLoop = requestAnimationFrame(() => this.animate());
   }
 
   ngOnDestroy() {
-    if (this.animationLoop) clearInterval(this.animationLoop);
+    if (this.animationLoop) cancelAnimationFrame(this.animationLoop);
   }
 
   onInteract(poi: PointOfInterest) {
@@ -194,14 +190,17 @@ export class ViewportComponent {
     let x = ((event.clientX - rect.left) / rect.width) * 100;
     let y = ((event.clientY - rect.top) / rect.height) * 100;
     const isCalibration = this.state()?.flags?.['calibration_mode'];
+    const isMedieval = this.state()?.flags?.['medieval_mode'];
 
     if (isCalibration) {
       if (!isPointInCalibrationWalkableArea(x, y)) return;
+    } else if (isMedieval) {
+      if (!isPointInMedievalWalkableArea(x, y)) return;
     } else {
       if (!isPointInWalkableArea(x, y)) return;
     }
 
-    const hotspots = isCalibration ? CALIBRATION_HOTSPOTS : BRIDGE_HOTSPOTS;
+    const hotspots = isCalibration ? CALIBRATION_HOTSPOTS : (isMedieval ? MEDIEVAL_HOTSPOTS : BRIDGE_HOTSPOTS);
     const isObstacle = hotspots.some(h =>
       h.isObstacle && (
         x >= h.bounds.x && x <= h.bounds.x + h.bounds.width &&
@@ -235,14 +234,20 @@ export class ViewportComponent {
             char.walkDistance = 0;
           }
         } else {
-          const speed = 0.45;
+          const isLeo = (char.name || '').toLowerCase() === 'leo' || (char.id || '').toLowerCase() === 'leo';
+
+          const speed = isLeo ? 0.08 : 0.22;
           const moveDist = Math.min(dist, speed);
           const ratio = moveDist / dist;
+          let moveX = dx * ratio;
+          let moveY = dy * ratio;
+
           if (!char.position) char.position = { x: 50, y: 50 };
-          char.position.x += (dx * ratio);
-          char.position.y += (dy * ratio);
+          char.position.x += moveX;
+          char.position.y += moveY;
           char.isMoving = true;
-          const visualDist = Math.sqrt(Math.pow(dx * ratio, 2) + Math.pow(dy * ratio * 1.6, 2));
+
+          const visualDist = Math.sqrt(moveX * moveX + (moveY * 1.6) * (moveY * 1.6));
           char.walkDistance += visualDist;
 
           if (Math.abs(dy) > Math.abs(dx) * 0.8) {
@@ -274,12 +279,33 @@ export class ViewportComponent {
     this.interact.emit(poi);
   }
 
-  getCharacterTransform(char: GameCharacter): string {
+  getCharacterContainerStyle(char: GameCharacter): { [key: string]: any } {
+    const isLeo = (char.name || '').toLowerCase() === 'leo' || (char.id === 'leo');
+
+    let baseWidthPerc = 8.5;
+    let aspectRatio = 1.0;
+
+    if (isLeo) {
+      baseWidthPerc = 14.5; // Dimensione bilanciata
+      aspectRatio = 1.0;
+    } else {
+      baseWidthPerc = 8.0;
+      aspectRatio = 2.0;
+    }
+
     const y = char.position?.y || 50;
     const progress = Math.max(0, Math.min(1, (y - 40) / 60));
-    const depthScale = 0.8 + (progress * 0.45);
-    const totalScale = (char.scale || 1) * depthScale;
-    return `translate(-50%, -100%) scale(${totalScale})`;
+    const depthScale = 0.9 + (progress * 0.35);
+
+    const finalWidth = baseWidthPerc * (char.scale || 1) * depthScale;
+    const finalHeight = finalWidth * aspectRatio * 1.7778;
+
+    return {
+      'width': finalWidth + '%',
+      'height': finalHeight + '%',
+      'transform': 'translate(-50%, -100%)',
+      'z-index': '20'
+    };
   }
 
   getFlipTransform(char: GameCharacter): string {
@@ -295,7 +321,7 @@ export class ViewportComponent {
   isSpriteSheet(char: GameCharacter): boolean {
     const name = (char.name || '').toLowerCase();
     const id = (char.id || '').toLowerCase();
-    return name === 'elias' || id === 'elias' || name === 'lisa' || id === 'lisa';
+    return name === 'elias' || id === 'elias' || name === 'lisa' || id === 'lisa' || name === 'leo' || id === 'leo';
   }
 
   getSpriteSheet(char: GameCharacter): string {
@@ -303,55 +329,103 @@ export class ViewportComponent {
     const id = (char.id || '').toLowerCase();
     if (name === 'lisa' || id === 'lisa') return '/lisa.png';
     if (name === 'sarah' || id === 'sarah') return '/sarah-sheet.png';
+    if (name === 'leo' || id === 'leo') return '/walkok.png';
     return '/medico2.png';
   }
 
   getSpriteStyle(char: GameCharacter): { [klass: string]: any } {
     if (!this.isSpriteSheet(char)) return {};
+
     const name = (char.name || '').toLowerCase();
     const isLisa = name === 'lisa' || char.id === 'lisa';
+    const isLeo = name === 'leo' || char.id === 'leo';
 
-    // TORNIAMO ALLA METRICA MEDICO (256px altezza contenitore)
-    const frameSize = 128;
-    const rowHeight = 256; // Box alto 256px per non tagliare la testa
-    const framesPerRow = 8;
-    const sheetWidth = 1024;
+    // Animation Configs
+    const config = {
+      baseWidth: 100, // Larghezza riferimento per scala (%)
+      frameSize: 128,
+      rowHeight: 256,
+      framesPerRow: 8,
+      sheetWidth: 1024,
+      verticalOffset: 20
+    };
+
+    if (isLeo) {
+      config.frameSize = 1024 / 7;
+      config.rowHeight = config.frameSize;
+      config.framesPerRow = 7;
+      config.sheetWidth = 1024;
+      config.verticalOffset = 0;
+    }
+
+    const spriteAspect = config.rowHeight / config.frameSize;
 
     let row = 0;
     let col = 0;
     let transformMultiplier = 'none';
-    let verticalOffset = 0;
 
     if (char.isMoving) {
-      const stride = 2.2;
-      const walkDist = char.walkDistance || 0;
-      col = Math.floor(walkDist / stride) % framesPerRow;
+      // Stride leggermente accelerato (da 0.25 a 0.22)
+      const stride = isLeo ? 0.22 : 2.2;
 
-      if (isLisa) {
-        row = 0; // Lisa Walk Riga 0 (Offset 128px se necessario, ma proviamo base 0)
-        verticalOffset = 20; // Stessi offset calibrati medico
-        if (char.direction === 'left') transformMultiplier = 'scaleX(-1)';
+      const walkDist = char.walkDistance || 0;
+
+      if (isLeo) {
+        // SBLOCCO TUTTI I FRAME (7x7 = 49 frame)
+        // Il primo ciclo parte da 0, i successivi ripartono dalla seconda riga (frame 7)
+        const strideVal = Math.floor(walkDist / stride);
+        const loopStartFrame = 7; // Seconda riga
+        const totalFramesInSheet = 49;
+        const loopFramesCount = totalFramesInSheet - loopStartFrame; // 42
+
+        let currentFrameIndex;
+        if (strideVal < totalFramesInSheet) {
+          currentFrameIndex = strideVal;
+        } else {
+          currentFrameIndex = loopStartFrame + ((strideVal - totalFramesInSheet) % loopFramesCount);
+        }
+
+        row = Math.floor(currentFrameIndex / 7);
+        col = currentFrameIndex % 7;
+
+        // Reset offset e flip basato sulla direzione di movimento
+        config.verticalOffset = 0;
+        if (char.direction === 'right') transformMultiplier = 'scaleX(-1)';
+
       } else {
-        // Elias & Sarah Logic (4-Row Sheets)
-        verticalOffset = 20;
-        switch (char.facing) {
-          case 'right': row = 0; break;
-          case 'left': row = 0; transformMultiplier = 'scaleX(-1)'; break;
-          case 'down': row = 1; break;
-          case 'up': row = 2; verticalOffset = 90; break;
-          default: row = 1;
+        // LOGICA STANDARD (Elias/Lisa)
+        col = Math.floor(walkDist / stride) % config.framesPerRow;
+
+        if (isLisa) {
+          row = 0;
+          config.verticalOffset = 20;
+          if (char.direction === 'left') transformMultiplier = 'scaleX(-1)';
+        } else {
+          // Elias & Sarah Logic (4-Row Sheets)
+          config.verticalOffset = 20;
+          switch (char.facing) {
+            case 'right': row = 0; break;
+            case 'left': row = 0; transformMultiplier = 'scaleX(-1)'; break;
+            case 'down': row = 1; break;
+            case 'up': row = 2; config.verticalOffset = 90; break;
+            default: row = 1;
+          }
         }
       }
     } else {
       if (isLisa) {
-        // Lisa Idle Riga 1 (A 128px di profondità nel file)
         const globalFrame = this.animFrame();
         col = Math.floor(globalFrame / 4) % 8;
-        verticalOffset = 90; // Abbassiamo per centrare i piedi
+        config.verticalOffset = 90;
+      } else if (isLeo) {
+        // Leo Idle: Primo frame assoluto per test (Row 0, Col 0)
+        row = 0;
+        col = 0;
+        // Mantiene l'orientamento anche da fermo
+        if (char.direction === 'right') transformMultiplier = 'scaleX(-1)';
       } else {
-        // Elias & Sarah Idle (Row 3)
         row = 3;
-        verticalOffset = 90;
+        config.verticalOffset = 90;
         const globalFrame = this.animFrame();
         const cycleLength = 300;
         const animLength = 8;
@@ -360,29 +434,16 @@ export class ViewportComponent {
       }
     }
 
-    const xPos = -(col * frameSize);
-    // CALCOLO Y DINAMICO PER LISA (Righe da 128px in box da 256px)
-    // Se Row 1 è Idle (128-256 nel file), con yPos = 0 appare in fondo al box [128-256].
-    // Se Row 0 è Walk (0-128 nel file), con yPos = 128 appare in fondo al box [128-256].
-    let yPos = 0;
-    if (isLisa) {
-      yPos = char.isMoving ? 128 : 0;
-    } else {
-      yPos = -(row * 256);
-    }
-
-    const combinedTransform = verticalOffset !== 0
-      ? `${transformMultiplier !== 'none' ? transformMultiplier + ' ' : ''}translateY(${verticalOffset}px)`
-      : transformMultiplier;
+    const totalRows = isLeo ? 7 : 4;
 
     return {
-      'width.px': frameSize,
-      'height.px': rowHeight,
+      'width': '100%',
+      'height': '100%',
       'background-image': `url("${this.getSpriteSheet(char)}")`,
-      'background-size': `${sheetWidth}px auto`,
-      'background-position': `${xPos}px ${yPos}px`,
+      'background-size': `${config.framesPerRow * 100}% auto`,
+      'background-position': `${(col / (config.framesPerRow - 1)) * 100}% ${(row / (totalRows - 1)) * 100}%`,
       'background-repeat': 'no-repeat',
-      'transform': combinedTransform,
+      'transform': transformMultiplier !== 'none' ? transformMultiplier : 'none',
       'transform-origin': 'bottom center',
       'image-rendering': 'pixelated'
     };

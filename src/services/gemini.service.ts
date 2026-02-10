@@ -26,7 +26,7 @@ Regola d'oro: Quando descrivi una stanza, elenca sempre 'Punti di interesse', 'O
 
 --- VISUAL ENGINE: CHARACTER SPRITES ---
 Devi posizionare i personaggi nella scena usando coordinate X/Y (percentuali).
-- Elias (Player) ID: 'elias'. Usa sempre questo ID.
+- Leo (Player) ID: 'leo'. Usa sempre questo ID per il giocatore principale.
 - Sarah, Kael, Mina devono essere posizionati logicamente sul ponte.
 - Esempio: "position": { "x": 50, "y": 80 } (50% sinistra, 80% dall'alto).
 - Animation States: Includi "isMoving": false e "direction": "right" nei personaggi.
@@ -126,8 +126,8 @@ Applica i flags iniziali: mina_svenuta=true, nav_computer_locked=true.
 Sarah è nel panico.
 
 IMPORTANTE: 
-1. Includi Elias (Player) e gli altri personaggi nell'array "characters" con posizioni X/Y plausibili.
-   AGGIUNGI OBBLIGATORIAMENTE LO SPRITE DI ELIAS: { "id": "elias", "name": "Elias", "position": { "x": 50, "y": 70 }, "status": "idle", "isPlayer": true }
+1. Includi Leo (Player) e gli altri personaggi nell'array "characters" con posizioni X/Y plausibili.
+   AGGIUNGI OBBLIGATORIAMENTE LO SPRITE DI LEO: { "id": "leo", "name": "Leo", "position": { "x": 50, "y": 70 }, "status": "idle", "isPlayer": true, "scale": 1.4 }
 2. Assicurati che 'visualCue' descriva la stanza VUOTA (senza persone), così posso sovrapporre gli sprite.
 Genera il JSON iniziale.
 `;
@@ -159,10 +159,10 @@ Genera il JSON iniziale.
       ],
       characters: [
         {
-          id: "elias",
-          name: "Elias",
+          id: "leo",
+          name: "Leo",
           position: { x: 50, y: 80 },
-          scale: 1.25,
+          scale: 1.4,
           status: "idle",
           isPlayer: true,
           isMoving: false,
@@ -188,10 +188,10 @@ Genera il JSON iniziale.
       ],
       characters: [
         {
-          id: "elias",
-          name: "Elias",
+          id: "leo",
+          name: "Leo",
           position: { x: 50, y: 75 },
-          scale: 1.25,
+          scale: 1.4,
           status: "idle",
           isPlayer: true,
           isMoving: false,
