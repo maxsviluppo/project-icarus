@@ -20,13 +20,31 @@ import { CommonModule } from '@angular/common';
 
     <!-- Collapsible Menu Panel -->
     <div class="menu-panel" [class.open]="isOpen()">
-      <div class="menu-header">
+      <div class="menu-header px-4">
         <div class="header-line"></div>
         <h2>VESPER MAIN CONTROL</h2>
         <div class="header-line"></div>
       </div>
 
-      <div class="menu-content">
+      <div class="menu-content overflow-y-auto px-1">
+        <!-- New Section: Environments -->
+        <div class="menu-section">
+          <h3 class="section-title">Environment Matrix</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <button class="menu-button-horiz" (click)="onChangeEnvironment('space')">
+              <div class="btn-icon-small">🚀</div>
+              <span>AMBIENTE SPAZIALE</span>
+            </button>
+            <button class="menu-button-horiz" (click)="onChangeEnvironment('test')">
+              <div class="btn-icon-small">🧪</div>
+              <span>AMBIENTE TEST</span>
+            </button>
+            <button class="menu-button-horiz" (click)="onChangeEnvironment('medieval')">
+              <div class="btn-icon-small">🏰</div>
+              <span>AMBIENTE MEDIOEVALE</span>
+            </button>
+          </div>
+        </div>
         <!-- Top Section: Data Management -->
         <div class="menu-section">
           <h3 class="section-title">Data Storage</h3>
@@ -47,9 +65,58 @@ import { CommonModule } from '@angular/common';
           </div>
         </div>
 
+        <!-- Middle Section: Pilots -->
+        <div class="menu-section">
+          <h3 class="section-title">Pilots & Presence</h3>
+          
+          <button class="menu-button-horiz mb-4 bg-cyan-950/30 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.1)]" (click)="onToggleCharacters()">
+            <div class="btn-icon-small">👁️</div>
+            <span>TOGGLE CHARACTER LAYER</span>
+          </button>
+
+          <div class="action-grid">
+            <button class="menu-button pilot" (click)="onChangeCharacter('elias')">
+              <div class="btn-icon">
+                <img src="/character-elias.png" alt="Elias" class="rounded-full object-cover">
+              </div>
+              <span class="text-xs">ELIAS</span>
+            </button>
+
+            <button class="menu-button pilot" (click)="onChangeCharacter('lisa')">
+              <div class="btn-icon">
+                <img src="/lisa.png" alt="Lisa" class="rounded-full object-cover">
+              </div>
+              <span class="text-xs">LISA</span>
+            </button>
+
+            <button class="menu-button pilot" (click)="onChangeCharacter('sarah')">
+              <div class="btn-icon">
+                <img src="/character-sarah.png" alt="Sarah" class="rounded-full object-cover">
+              </div>
+              <span class="text-xs">SARAH</span>
+            </button>
+
+            <button class="menu-button pilot opacity-50 border-dashed" (click)="onChangeCharacter('none')">
+              <div class="btn-icon">
+                <div class="w-8 h-8 rounded-full border border-slate-700 flex items-center justify-center text-xs">OFF</div>
+              </div>
+              <span class="text-[8px]">GHOST MODE</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Middle Section: System -->
         <div class="menu-section">
           <h3 class="section-title">System</h3>
+          
+          <!-- Character Calibration Button -->
+          <button class="menu-button calibration mb-4" (click)="onCalibration()">
+            <div class="btn-icon">
+              <span class="exit-glyph text-cyan-400">⊕</span>
+            </div>
+            <span>RUN CALIBRATION</span>
+          </button>
+
           <button class="menu-button exit" (click)="onExit()">
             <div class="btn-icon">
               <span class="exit-glyph">⏻</span>
@@ -148,13 +215,44 @@ import { CommonModule } from '@angular/common';
       background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
       border-left: 1px solid rgba(34, 211, 238, 0.2);
       z-index: 950;
-      padding: 40px 20px;
+      padding: 40px 10px;
       display: flex;
       flex-direction: column;
       transform: translateX(100%);
       transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
       pointer-events: auto;
+    }
+
+    .menu-button-horiz {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px 15px;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: left;
+    }
+
+    .menu-button-horiz:hover {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: #22d3ee;
+      transform: translateX(-4px);
+    }
+
+    .menu-button-horiz span {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .btn-icon-small {
+      font-size: 16px;
     }
 
     .menu-panel.open {
@@ -258,6 +356,15 @@ import { CommonModule } from '@angular/common';
       font-size: 20px;
     }
 
+    .calibration {
+      width: 100%;
+      flex-direction: row;
+      justify-content: center;
+      border-color: rgba(34, 211, 238, 0.3);
+      color: #22d3ee;
+      margin-bottom: 15px;
+    }
+
     .vague-display {
       background: rgba(0, 0, 0, 0.4);
       border-radius: 8px;
@@ -305,9 +412,27 @@ export class GameMenuComponent {
   save = output<void>();
   load = output<void>();
   exit = output<void>();
+  calibration = output<void>();
+  changeCharacter = output<string>();
+  changeEnvironment = output<string>();
+  toggleCharacters = output<void>();
 
   toggleMenu() {
     this.isOpen.update(v => !v);
+  }
+
+  onToggleCharacters() {
+    this.toggleCharacters.emit();
+  }
+
+  onChangeEnvironment(envId: string) {
+    this.changeEnvironment.emit(envId);
+    this.toggleMenu();
+  }
+
+  onChangeCharacter(charId: string) {
+    this.changeCharacter.emit(charId);
+    this.toggleMenu();
   }
 
   onSave() {
@@ -322,6 +447,11 @@ export class GameMenuComponent {
 
   onExit() {
     this.exit.emit();
+    this.toggleMenu();
+  }
+
+  onCalibration() {
+    this.calibration.emit();
     this.toggleMenu();
   }
 }

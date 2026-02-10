@@ -135,7 +135,73 @@ Genera il JSON iniziale.
   }
 
   async sendAction(action: string): Promise<GameState> {
+    const actionLower = action.toLowerCase();
+    if (actionLower.includes('calibration') || actionLower.includes('test room')) {
+      return this.getCalibrationState();
+    }
+    if (actionLower.includes('medieval')) {
+      return this.getMedievalState();
+    }
     return this.sendMessage(action);
+  }
+
+  getMedievalState(): GameState {
+    return {
+      roomName: "Medieval Chamber",
+      storyState: "REPAIR",
+      flags: { "medieval_mode": true },
+      narrative: "Chronological anomaly detected. Neural link stabilized in a medieval stone chamber. The air is thick with the scent of aged parchment and beeswax.",
+      visualCue: "Medieval Stone Chamber",
+      pointsOfInterest: [
+        { id: "throne", name: "Wooden Throne", description: "A beautifully carved oak throne, witness to ages past.", type: "interactable", status: "unlocked" },
+        { id: "window", name: "High Window", description: "Dust motes dance in the light from the narrow window.", type: "interactable", status: "unlocked" },
+        { id: "tapestry", name: "Royal Tapestry", description: "A grand tapestry depicting a forgotten battle.", type: "interactable", status: "unlocked" }
+      ],
+      characters: [
+        {
+          id: "elias",
+          name: "Elias",
+          position: { x: 50, y: 80 },
+          scale: 1.25,
+          status: "idle",
+          isPlayer: true,
+          isMoving: false,
+          direction: "right",
+          facing: "down"
+        }
+      ],
+      inventory: ["Ancient Key"],
+      gameOver: false
+    };
+  }
+
+  getCalibrationState(): GameState {
+    return {
+      roomName: "Test Room 01",
+      storyState: "REPAIR",
+      flags: { "calibration_mode": true },
+      narrative: "Neural Link Stabilized. Entering Character Calibration Suite. Grid floor active for stride measurement.",
+      visualCue: "Calibration Room Grid",
+      pointsOfInterest: [
+        { id: "test_cube", name: "Calibration Cube", description: "A simple geometric shape for interaction testing.", type: "interactable", status: "unlocked" },
+        { id: "exit_calibration", name: "Exit Simulation", description: "Return to the Vesper Bridge.", type: "exit", status: "unlocked" }
+      ],
+      characters: [
+        {
+          id: "elias",
+          name: "Elias",
+          position: { x: 50, y: 75 },
+          scale: 1.25,
+          status: "idle",
+          isPlayer: true,
+          isMoving: false,
+          direction: "right",
+          facing: "down"
+        }
+      ],
+      inventory: ["Scanner"],
+      gameOver: false
+    };
   }
 
   // --- SAVE/LOAD SYSTEM ---

@@ -1,21 +1,26 @@
 <div class="relative w-full h-full bg-black overflow-hidden font-mono selection:bg-cyan-900 selection:text-white">
   <!-- FULL SCREEN VIEWPORT (Background Layer) -->
   <app-viewport [state]="gameState()" [imageSrc]="currentImage()" [loading]="isLoading()"
-    (interact)="handleInteraction($event)" (dialogueChoice)="handleDialogue($event)" class="absolute inset-0 z-0">
+    [renderCharacters]="renderCharacters()" (interact)="handleInteraction($event)"
+    (dialogueChoice)="handleDialogue($event)" class="absolute inset-0 z-0">
   </app-viewport>
+
+  <!-- FIXED LOGO (Always Top Left) -->
+  <div class="fixed top-4 left-4 z-[70] pointer-events-auto">
+    <img src="/logo.png" alt="Vesper Project Apep"
+      class="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity">
+  </div>
 
   <!-- UI OVERLAYS (Top Layer) -->
   <div class="absolute inset-0 z-10 pointer-events-none flex flex-col">
 
     <!-- Header Overlay -->
     <header
-      class="h-24 bg-gradient-to-b from-black/80 to-transparent flex items-start justify-between p-4 pointer-events-auto">
-      <div class="flex items-start space-x-3">
-        <img src="/logo.png" alt="Vesper Project Apep" class="h-10 object-contain">
-      </div>
-
-      <!-- Game Menu (Save, Load, Exit) -->
-      <app-game-menu (save)="saveGame()" (load)="loadGame()" (exit)="terminateSession()">
+      class="h-24 bg-gradient-to-b from-black/80 to-transparent flex items-start justify-end p-4 pointer-events-auto">
+      <!-- System Game Menu (Always Original) -->
+      <app-game-menu (save)="saveGame()" (load)="loadGame()" (exit)="terminateSession()"
+        (calibration)="startCalibration()" (changeCharacter)="handleCharacterChange($event)"
+        (changeEnvironment)="changeEnvironment($event)" (toggleCharacters)="toggleCharacters()">
       </app-game-menu>
     </header>
 
@@ -43,14 +48,22 @@
       </aside>
     </div>
 
-    <!-- Bottom Overlays (Action Bar handled by its own component) -->
+    <!-- Bottom Overlays -->
     <div class="h-28 pointer-events-none"></div>
   </div>
 
   <!-- Action Bar (Floating Overlay) -->
+  @if (isMedievalEnvironment()) {
+  <!-- Medieval Shield Action Bar (Bottom Right) -->
+  <app-medieval-action-bar [items]="(inventoryService.items$ | async) || []" (actionSelected)="onActionSelected($event)"
+    (inventoryToggled)="onInventoryToggled()">
+  </app-medieval-action-bar>
+  } @else {
+  <!-- Standard Action Bar -->
   <app-action-bar (actionSelected)="onActionSelected($event)" (inventoryToggled)="onInventoryToggled()"
     class="z-50 pointer-events-none">
   </app-action-bar>
+  }
 
   <!-- Inventory Panel (overlay) -->
   <app-inventory-panel [isOpen]="(inventoryService.isOpen$ | async) || false"
